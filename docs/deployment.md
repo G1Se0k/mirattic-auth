@@ -1,0 +1,78 @@
+# Deployment / Operations
+
+## Domains
+```text
+auth.mirattic.com
+sync.mirattic.com
+flow.mirattic.com
+```
+
+## MVP Topology
+```text
+Caddy
+  ├─ auth.mirattic.com → Auth Spring Boot
+  ├─ sync.mirattic.com → Sync
+  └─ flow.mirattic.com → Flow
+
+MySQL
+  ├─ mirattic_auth
+  ├─ mirattic_sync
+  └─ mirattic_flow
+```
+
+Separate logical DBs even if one MySQL server is used.
+
+## TLS
+HTTPS required in production.
+
+## Signing Keys
+Do not generate ephemeral signing keys on every restart.
+
+Plan for:
+- persistent private key
+- `kid`
+- current key
+- previous public key during rotation
+- secure backup
+
+## Email
+Suggested sender:
+`noreply@mirattic.com`
+
+Use transactional email provider + SPF/DKIM/DMARC.
+
+## Backups
+Auth DB backup is critical.
+Signing private keys require separate secure backup.
+
+## Monitoring
+Minimum:
+- login failures
+- signup rate
+- email send failures
+- token endpoint errors
+- refresh/revoke errors
+- DB errors
+- latency / 5xx
+
+Never include sensitive tokens in logs/monitoring.
+
+## Availability
+Single instance is acceptable for MVP.
+Scale only when metrics justify it.
+
+## Local Development
+```bash
+docker compose up -d                                        # MySQL 8.4 on 3307, db mirattic_auth
+./mvnw spring-boot:run -Dspring-boot.run.profiles=local     # http://localhost:9000
+./mvnw test                                                 # Testcontainers (Docker required)
+```
+`local` profile generates `.local/signing-key.jwk.json` (0600) on first run. Production must mount a key via `AUTH_SIGNING_KEY_PATH`.
+
+## Environment
+| var | default |
+|---|---|
+| `AUTH_ISSUER` | `http://localhost:9000` (prod: `https://auth.mirattic.com`) |
+| `AUTH_SIGNING_KEY_PATH` | `./.local/signing-key.jwk.json` |
+| `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` | local MySQL on 3307 |
+| `PORT` | `9000` |

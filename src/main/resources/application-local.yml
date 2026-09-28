@@ -1,0 +1,21 @@
+# Local development: `./mvnw spring-boot:run -Dspring-boot.run.profiles=local`
+spring:
+  datasource:
+    password: ${DB_PASSWORD:mirattic_auth}
+  security:
+    oauth2:
+      authorizationserver:
+        client:
+          dev:
+            registration:
+              client-id: mirattic-dev
+              client-authentication-methods: [none]
+              # No refresh_token: SAS issues none to public clients by default (Phase 2 decision).
+              authorization-grant-types: [authorization_code]
+              redirect-uris: [http://127.0.0.1:8081/callback]
+              scopes: [openid, profile, email]
+            require-proof-key: true
+
+auth:
+  signing-key:
+    generate-if-missing: true

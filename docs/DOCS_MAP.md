@@ -1,0 +1,11 @@
+# Documentation Map
+- `../CLAUDE.md` — Claude Code rules
+- `PLAN.md` — product scope
+- `architecture.md` — boundaries/components
+- `oauth-oidc.md` — standard auth flows
+- `data-model.md` — identity schema
+- `api.md` — account API
+- `security.md` — security requirements
+- `migration.md` — Sync/Flow migration
+- `deployment.md` — deployment/keys/backups
+- `progress.md` — phase tracker

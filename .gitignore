@@ -1,0 +1,6 @@
+target/
+.local/
+.idea/
+.DS_Store
+*.jwk.json
+.env

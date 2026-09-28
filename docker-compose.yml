@@ -1,0 +1,15 @@
+# Local development only. 3307 so it can run beside Sync's MySQL on 3306.
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: mirattic_auth
+      MYSQL_USER: mirattic_auth
+      MYSQL_PASSWORD: mirattic_auth
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+volumes:
+  mysql-data:

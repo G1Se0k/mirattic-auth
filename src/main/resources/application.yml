@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: mirattic-auth
+  datasource:
+    # preserveInstants/UTC: required by Spring Authorization Server's JDBC schema on MySQL.
+    url: ${DB_URL:jdbc:mysql://localhost:3307/mirattic_auth?preserveInstants=true&connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true}
+    username: ${DB_USERNAME:mirattic_auth}
+    password: ${DB_PASSWORD:}
+  security:
+    oauth2:
+      authorizationserver:
+        issuer: ${AUTH_ISSUER:http://localhost:9000}
+        # Clients: dev client in application-local.yml. Sync/Flow clients are added once
+        # redirect URIs are decided. Without any client the server does not start.
+  autoconfigure:
+    exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
+
+server:
+  port: ${PORT:9000}
+  forward-headers-strategy: native
+
+auth:
+  signing-key:
+    path: ${AUTH_SIGNING_KEY_PATH:./.local/signing-key.jwk.json}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
