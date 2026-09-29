@@ -51,8 +51,10 @@ to the previous image, keeps 5 tagged images). The deploy job runs only when the
       Let's Encrypt cert obtained; Sync / Flow unaffected. DNS already proxied by Cloudflare.
 - [x] CI test job green on GitHub
 - [x] mail provider decided: **Resend** (SMTP `smtp.resend.com:587`, user `resend`); host/port/user set in host `.env`
-- [ ] Resend: account, domain `mirattic.com` verified (DNS records in Cloudflare), API key → host `.env` `MAIL_PASSWORD`
-- [ ] repo variable `DEPLOY_ENABLED=true` → first deploy
+- [x] Resend API key → host `.env` `MAIL_PASSWORD` (SMTP auth OK)
+- [ ] Resend domain `mirattic.com` verified (SPF/DKIM records in Cloudflare DNS) — until then sends fail
+      with `550 not authorized to send emails from mirattic.com`; works without redeploy once verified
+- [x] repo variable `DEPLOY_ENABLED=true` → first deploy (manual redeploy: `gh workflow run CI`)
 - [ ] raw client secrets → Sync / Flow server env (Phase 3 / 4), then delete `client-secrets.txt`
 
 ### Backups

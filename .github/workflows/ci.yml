@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch: # manual redeploy of main
 
 jobs:
   test:
@@ -21,7 +22,7 @@ jobs:
   # Same pipeline as Mirattic Sync: arm64 image (Apple Silicon host with OrbStack), streamed over SSH,
   # no registry, switched by deploy/deploy.sh with health check + rollback.
   deploy:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
     needs: [test]
     runs-on: ubuntu-latest
     concurrency: deploy-auth
