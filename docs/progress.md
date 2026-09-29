@@ -1,5 +1,5 @@
 # Current Phase
-Phase 2 — OAuth/OIDC Clients (done)
+Phase 3 — Mirattic Sync Migration (Auth-side prep only; Sync code untouched by request)
 
 ## Goal
 Create the central Mirattic Auth project and finalize the first deployable authentication architecture.
@@ -77,6 +77,11 @@ Create the central Mirattic Auth project and finalize the first deployable authe
 - asymmetric JWT signing
 - explicit account linking
 
+## Phase 3 Status (2026-09-29)
+- Decision: option B — extension holds Auth tokens, Sync relays refresh (`migration.md`)
+- Auth: refresh reuse detection (V2 `rotated_refresh_tokens`; reuse after 10 s grace → whole authorization removed, owner client only); rotation is a row-locked compare-and-swap. 27 tests pass.
+- Sync-side work list written in `migration.md`; not started (user: no Sync changes yet).
+
 ## Phase 2 Status (2026-09-29)
 Done:
 - Clients `mirattic-sync`, `mirattic-flow` registered (prod + dev redirect URIs) — `docs/clients.md`
@@ -125,6 +130,7 @@ Not changed: Sync / Flow code (user request: do not touch yet).
 | deletion | hard delete (cascade) | soft delete `deleted_at`, PII cleared |
 
 ## Validation
+- 2026-09-29 Codex Sol reuse-detection review (gpt-6-sol, high), 2 rounds: concurrent refresh false reuse (high) → CAS; cross-client revoke (medium) → owner check; overlapping late duplicate revoking the winner (high) → 10 s grace (known trade-off, documented). All fixed/tested.
 - 2026-09-29 Codex Sol Phase 2 review (gpt-6-sol, high): 2 findings, both fixed — UserInfo disclosed claims beyond a downscoped access token (medium); STATE lookups were hashed and always missed (low, consent/PAR not enabled).
 - 2026-09-29 Codex Sol Phase 1 review (gpt-6-sol, high): 2 findings, both fixed — reset-request timing (whole request now async), password change now invalidates outstanding reset links.
 - 2026-09-29 Codex Sol (gpt-6-sol, high): 5 findings.
@@ -137,7 +143,6 @@ Not changed: Sync / Flow code (user request: do not touch yet).
 - No rate limit yet on login / signup / reset (email bombing possible). Phase 7, or earlier before public deploy.
 - No email verification: anyone can sign up with an email they don't own (then that owner can reset the password). Decide before public launch.
 - Disabling a user does not end an existing Auth browser session; `/oauth2/authorize` still issues a code, but the code can no longer be exchanged (ACTIVE check at token issuance). Session cleanup belongs to the disable/delete feature (Phase 5).
-- Refresh reuse: an already-rotated refresh token is rejected, but its newer sibling is not revoked (no family reuse detection like Sync's). Lower risk with confidential clients (secret also needed).
 - SAS schema `timestamp` columns: MySQL 2038 limit.
 - `oauth2_authorization` rows are never purged (expired/used ones accumulate). Add a cleanup job before prod.
 - Single signing key; rotation (previous public key in JWKS) is Phase 7.
@@ -146,5 +151,5 @@ Not changed: Sync / Flow code (user request: do not touch yet).
 - Sync access-token `iss` is `mirattic`; Auth issuer is the URL — dual acceptance must handle both.
 
 ## Next Task
-Phase 3 (Sync migration) needs decisions:
-Sync extension login flow via `https://sync.mirattic.com/auth/callback`, what Sync backend returns to the extension.
+Waiting for approval to change Sync code. When approved, start `migration.md` "Sync-side Work List" 1–5
+(no data import yet). Auth-side candidates meanwhile: `oauth2_authorization` cleanup job, rate limits.

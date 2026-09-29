@@ -38,8 +38,12 @@ Single source for client IDs and redirect URIs. Config: `src/main/resources/appl
 
 ## Token Behavior
 - Any token issuance (code exchange or refresh) requires the account to be `ACTIVE`.
-- Refresh rotation: the used refresh token stops working; reusing it → `invalid_grant`
-  (no family revocation of the newer token — see progress.md known issues).
+- Refresh rotation: the used refresh token stops working. Concurrent refreshes with one token: exactly
+  one wins (row-locked compare-and-swap), the others get `invalid_grant`.
+- Reuse detection: a rotated-away refresh token presented **more than 10 s after** its rotation, by the
+  owning client, revokes the whole authorization (all tokens of that login, incl. the newer refresh
+  token); the user's other logins are untouched. Within 10 s it is only refused (retries / overlapping
+  requests look identical to the legit winner). Clients should still refresh single-flight.
 - Password change/reset deletes all of the user's authorizations → refresh fails.
 - `/oauth2/revoke` (client auth) revokes a refresh token.
 - Replaying an already-used authorization code revokes the tokens it issued.
@@ -58,7 +62,4 @@ Single source for client IDs and redirect URIs. Config: `src/main/resources/appl
 
 ## Open
 - Flow prod domain assumed `flow.mirattic.com` (Flow's `.env.prod.example` still says `flow.example.com`).
-- Sync extension: how it reaches `https://sync.mirattic.com/auth/callback` and how the Sync backend
-  hands the resulting session back to the extension (Phase 3, Sync-side change).
-- What the product backend gives its own frontend after the exchange (own session cookie vs forwarding
-  the Auth access token) — Phase 3/4, per product.
+- Sync: decided — extension holds Auth tokens, Sync relays refresh (`migration.md`). Flow: decide in Phase 4.

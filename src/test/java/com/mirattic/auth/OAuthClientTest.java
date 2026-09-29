@@ -1,6 +1,7 @@
 package com.mirattic.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -8,11 +9,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.jayway.jsonpath.JsonPath;
 import com.mirattic.auth.account.AccountService;
+import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2RefreshToken;
 import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;
 import org.springframework.security.oauth2.server.authorization.OAuth2Authorization;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
@@ -66,8 +70,32 @@ class OAuthClientTest extends IntegrationTest {
 		assertThat(r2).isNotEqualTo(r1);
 		assertThat((String) JsonPath.read(claims(JsonPath.read(second, "$.access_token")), "$.sub")).isEqualTo(s.uid());
 
+		String third = refresh(r2);
+		assertThat(third).contains("access_token");
+		String r3 = JsonPath.read(third, "$.refresh_token");
+		assertThat(refresh(r3)).contains("access_token");
+	}
+
+	@Test
+	void reusingARotatedRefreshTokenRevokesTheWholeLogin() throws Exception {
+		Session s = newUser();
+		String r1 = JsonPath.read(exchange(authorize(s.browser())), "$.refresh_token");
+		String r2 = JsonPath.read(refresh(r1), "$.refresh_token");
+
+		// Within the grace period a duplicate is only refused (retry / overlapping request).
 		assertThat(refresh(r1)).contains("invalid_grant");
-		assertThat(refresh(r2)).contains("access_token");
+		String r3 = JsonPath.read(refresh(r2), "$.refresh_token"); // immediate duplicate did not kill the login
+
+		// Later, a rotated-away token means it leaked.
+		jdbc.update("UPDATE rotated_refresh_tokens SET rotated_at = NOW(6) - INTERVAL 1 MINUTE");
+		assertThat(refresh(r1)).as("leaked old token").contains("invalid_grant");
+		assertThat(refresh(r3)).as("legit newest token dies with it").contains("invalid_grant");
+		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM oauth2_authorization WHERE principal_name = ?",
+				Integer.class, s.uid())).isZero();
+
+		// Other logins of the same user are untouched.
+		String other = JsonPath.read(exchange(authorize(s.browser())), "$.refresh_token");
+		assertThat(refresh(other)).contains("access_token");
 	}
 
 	@Test
@@ -156,6 +184,46 @@ class OAuthClientTest extends IntegrationTest {
 		String info = userInfo(JsonPath.read(narrowed, "$.access_token"))
 				.andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
 		assertThat(info).contains(s.uid()).doesNotContain("name").doesNotContain("email");
+	}
+
+	@Test
+	void concurrentRefreshesWithTheSameTokenHaveOneWinnerAndNoFalseReuse() throws Exception {
+		Session s = newUser();
+		String r1 = JsonPath.read(exchange(authorize(s.browser())), "$.refresh_token");
+		// Two requests both read the authorization with r1 before either saves (what SAS does per request).
+		OAuth2Authorization a = authorizations.findByToken(r1, OAuth2TokenType.REFRESH_TOKEN);
+		OAuth2Authorization b = authorizations.findByToken(r1, OAuth2TokenType.REFRESH_TOKEN);
+		Instant now = Instant.now();
+		authorizations.save(OAuth2Authorization.from(a)
+				.refreshToken(new OAuth2RefreshToken("winner-" + s.uid(), now, now.plusSeconds(3600))).build());
+		assertThatThrownBy(() -> authorizations.save(OAuth2Authorization.from(b)
+				.refreshToken(new OAuth2RefreshToken("loser-" + s.uid(), now, now.plusSeconds(3600))).build()))
+				.isInstanceOf(OAuth2AuthenticationException.class);
+
+		assertThat(refresh("loser-" + s.uid())).contains("invalid_grant");
+		assertThat(refresh("winner-" + s.uid())).as("winner not treated as reused").contains("access_token");
+	}
+
+	@Test
+	void overlappingRefreshAfterTheWinnerSavedDoesNotKillTheWinner() throws Exception {
+		Session s = newUser();
+		String r1 = JsonPath.read(exchange(authorize(s.browser())), "$.refresh_token");
+		String r2 = JsonPath.read(refresh(r1), "$.refresh_token"); // winner done
+		assertThat(refresh(r1)).as("late duplicate").contains("invalid_grant");
+		assertThat(refresh(r2)).contains("access_token");
+	}
+
+	@Test
+	void anotherClientCannotTriggerReuseRevocation() throws Exception {
+		Session s = newUser();
+		String r1 = JsonPath.read(exchange(authorize(s.browser())), "$.refresh_token");
+		String r2 = JsonPath.read(refresh(r1), "$.refresh_token");
+		jdbc.update("UPDATE rotated_refresh_tokens SET rotated_at = NOW(6) - INTERVAL 1 MINUTE");
+		mvc.perform(post("/oauth2/revoke").with(httpBasic("mirattic-flow", "dev-flow-secret"))
+						.contentType("application/x-www-form-urlencoded")
+						.content("token=" + r1 + "&token_type_hint=refresh_token"))
+				.andExpect(status().isOk());
+		assertThat(refresh(r2)).contains("access_token");
 	}
 
 	@Test

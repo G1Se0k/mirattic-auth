@@ -29,6 +29,8 @@ import org.springframework.security.oauth2.server.authorization.client.Registere
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
@@ -119,13 +121,14 @@ class SecurityConfig {
 	/** Refresh tokens are stored hashed, which only works with rotation (see HashedTokenAuthorizationService). */
 	@Bean
 	OAuth2AuthorizationService authorizationService(JdbcOperations jdbc, RegisteredClientRepository clients,
-			OAuth2AuthorizationServerProperties properties) {
+			OAuth2AuthorizationServerProperties properties, PlatformTransactionManager transactionManager) {
 		properties.getClient().forEach((name, client) -> {
 			if (client.getToken().isReuseRefreshTokens()) {
 				throw new IllegalStateException("Client '" + name + "' must set token.reuse-refresh-tokens: false");
 			}
 		});
-		return new HashedTokenAuthorizationService(new JdbcOAuth2AuthorizationService(jdbc, clients));
+		return new HashedTokenAuthorizationService(new JdbcOAuth2AuthorizationService(jdbc, clients), jdbc,
+				new TransactionTemplate(transactionManager));
 	}
 
 	@Bean

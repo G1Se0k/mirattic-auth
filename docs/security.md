@@ -70,6 +70,10 @@ Explicit linking is the default.
 - session cookies
 - authorization codes
 
+## Refresh Reuse
+Rotation + reuse detection with a 10 s grace (`clients.md`). Only the owning client can trigger the
+family revoke. Trade-off: a replay within 10 s of a rotation is refused but not treated as theft.
+
 ## Token Storage
 All OAuth token values in `oauth2_authorization` are stored as `sha256:<hex>`; lookups hash the presented
 value. Refresh rotation is mandatory for this (startup check).

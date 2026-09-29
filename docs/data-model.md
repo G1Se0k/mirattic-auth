@@ -54,6 +54,9 @@ Stored via `JdbcOAuth2AuthorizationService` wrapped by `HashedTokenAuthorization
 every token value column (code, access, refresh, ID token) holds `sha256:<hex>`, never the raw value.
 Requires refresh rotation (`reuse-refresh-tokens: false`; enforced at startup).
 
+Rotated-away refresh tokens: `rotated_refresh_tokens(token_hash, authorization_id → oauth2_authorization ON DELETE CASCADE)`.
+Presenting one again removes the authorization.
+
 Requirements:
 - rotation
 - revocation
