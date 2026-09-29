@@ -2,8 +2,8 @@
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments :: head('새 비밀번호')}"></head>
 <body>
-<header th:replace="~{fragments :: top}"></header>
-<main>
+<main class="landing">
+  <div th:replace="~{fragments :: lockup}"></div>
   <div class="panel">
     <h1>새 비밀번호 설정</h1>
     <p class="lede">변경하면 모든 기기와 앱에서 로그아웃됩니다.</p>
