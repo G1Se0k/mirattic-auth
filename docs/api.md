@@ -11,7 +11,7 @@ are server-rendered forms on `auth.mirattic.com` (form POST + CSRF token), not J
 |---|---|---|---|
 | GET/POST | `/login` | – | Spring Security form login (`username` = email). Any failure → `/login?error` (one generic message). After login the saved `/oauth2/authorize` request resumes. |
 | GET/POST | `/signup` | – | `email`, `displayName`, `password`. Creates user (UUID) + LOCAL identity, then → `/login?signup`. No auto-login. One per network per 24 h. |
-| GET/POST | `/password/reset` | – | `email`. Same response whether or not the account exists. |
+| GET/POST | `/password/reset` | – | `email`. Same response whether or not the account exists. One mail per account per 24 h. |
 | GET/POST | `/password/reset/confirm` | reset token | `token`, `password`. One-time, 30 min. → `/login?reset`. |
 | GET | `/account` | session | email, UID, display name. |
 | POST | `/account/name` | session + CSRF | `displayName` |

@@ -93,13 +93,14 @@ public class AccountService {
 	public void requestPasswordReset(String email) {
 		String normalized = normalizeEmail(email);
 		// The row lock serializes concurrent requests for one account, so the throttle below holds:
-		// at most one mail per account per minute, whatever the number of requesting IPs.
+		// at most one reset mail per account per 24 h, whatever the number of requesting IPs
+		// (mail-bombing guard and Resend quota). The page can't say so without revealing the account.
 		List<String> ids = jdbc.queryForList("""
 				SELECT u.id FROM user_identities i JOIN users u ON u.id = i.user_id
 				WHERE i.provider = 'LOCAL' AND i.subject = ? AND u.status = 'ACTIVE' FOR UPDATE
 				""", String.class, normalized);
 		if (ids.isEmpty() || jdbc.queryForObject("SELECT COUNT(*) FROM password_reset_tokens "
-				+ "WHERE user_id = ? AND created_at > NOW(6) - INTERVAL 1 MINUTE", Integer.class, ids.getFirst()) > 0) {
+				+ "WHERE user_id = ? AND created_at > NOW(6) - INTERVAL 1 DAY", Integer.class, ids.getFirst()) > 0) {
 			return;
 		}
 		String token = newToken();

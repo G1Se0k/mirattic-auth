@@ -3,7 +3,7 @@
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>비밀번호 찾기</title><link rel="stylesheet" th:href="@{/style.css}"></head>
 <body><main>
   <h1>비밀번호 찾기</h1>
-  <div class="msg ok" th:if="${sent}">가입된 이메일이라면 재설정 링크를 보냈습니다. 메일함을 확인하세요.</div>
+  <div class="msg ok" th:if="${sent}">가입된 이메일이라면 재설정 링크를 보냈습니다. 메일함(스팸함 포함)을 확인하세요. 재설정 메일은 계정당 하루에 한 번만 보낼 수 있습니다.</div>
   <form method="post" th:action="@{/password/reset}" th:unless="${sent}">
     <label for="email">가입한 이메일</label>
     <input id="email" name="email" type="email" autocomplete="email" required autofocus>

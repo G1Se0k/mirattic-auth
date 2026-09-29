@@ -18,17 +18,18 @@ if [ ! -f .env ]; then
     echo "MYSQL_ROOT_PASSWORD=$(openssl rand -hex 24)"
     echo "SYNC_CLIENT_SECRET_HASH='$(hash "$sync_secret")'"
     echo "FLOW_CLIENT_SECRET_HASH='$(hash "$flow_secret")'"
-    echo "MAIL_HOST="
+    # Resend SMTP (docs/deployment.md): only the API key has to be filled in.
+    echo "MAIL_HOST=smtp.resend.com"
     echo "MAIL_PORT=587"
-    echo "MAIL_USERNAME="
+    echo "MAIL_USERNAME=resend"
     echo "MAIL_PASSWORD="
   } > .env
   # Raw client secrets: copy each to its product server's env, then delete this file.
   printf 'MIRATTIC_SYNC_CLIENT_SECRET=%s\nMIRATTIC_FLOW_CLIENT_SECRET=%s\n' "$sync_secret" "$flow_secret" > client-secrets.txt
-  echo "Created deploy/.env and deploy/client-secrets.txt. Fill MAIL_* in .env, hand out client-secrets.txt, rerun." >&2
+  echo "Created deploy/.env and deploy/client-secrets.txt. Put the Resend API key in MAIL_PASSWORD, hand out client-secrets.txt, rerun." >&2
 fi
-if ! grep -q '^MAIL_HOST=..*' .env; then
-  echo "deploy/.env: MAIL_HOST is empty (password reset mail needs SMTP). Not deploying." >&2
+if ! grep -q '^MAIL_HOST=..*' .env || ! grep -q '^MAIL_PASSWORD=..*' .env; then
+  echo "deploy/.env: MAIL_HOST / MAIL_PASSWORD empty (password reset mail needs SMTP). Not deploying." >&2
   exit 1
 fi
 

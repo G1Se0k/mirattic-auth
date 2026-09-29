@@ -50,7 +50,8 @@ to the previous image, keeps 5 tagged images). The deploy job runs only when the
 - [x] host Caddy: `auth.mirattic.com` block added (backup `/opt/homebrew/etc/Caddyfile.before-auth-*`),
       Let's Encrypt cert obtained; Sync / Flow unaffected. DNS already proxied by Cloudflare.
 - [x] CI test job green on GitHub
-- [ ] `MAIL_*` in host `deploy/.env` (no SMTP provider exists on the host yet)
+- [x] mail provider decided: **Resend** (SMTP `smtp.resend.com:587`, user `resend`); host/port/user set in host `.env`
+- [ ] Resend: account, domain `mirattic.com` verified (DNS records in Cloudflare), API key → host `.env` `MAIL_PASSWORD`
 - [ ] repo variable `DEPLOY_ENABLED=true` → first deploy
 - [ ] raw client secrets → Sync / Flow server env (Phase 3 / 4), then delete `client-secrets.txt`
 
@@ -80,10 +81,9 @@ Plan for:
 - secure backup
 
 ## Email
-Suggested sender:
-`noreply@mirattic.com`
-
-Use transactional email provider + SPF/DKIM/DMARC.
+Provider: Resend (SMTP). Sender `noreply@mirattic.com` (`AUTH_MAIL_FROM`). Requires the domain verified in
+Resend (SPF + DKIM records in Cloudflare DNS; add a DMARC record too). Free tier 3,000 mails / month;
+reset mail is limited to one per account per day.
 
 ## Backups
 Auth DB backup is critical.

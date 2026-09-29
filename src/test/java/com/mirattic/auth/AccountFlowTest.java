@@ -141,15 +141,22 @@ class AccountFlowTest extends IntegrationTest {
 	}
 
 	@Test
-	void resetMailIsSentAtMostOncePerMinutePerAccount() throws Exception {
+	void resetMailIsSentAtMostOncePerDayPerAccount() throws Exception {
 		Mockito.reset(mailSender);
 		String email = email();
 		signup(email, "password-1", "M");
 		accounts.requestPasswordReset(email);
 		verify(mailSender, timeout(2000)).send(Mockito.any(SimpleMailMessage.class));
 		accounts.requestPasswordReset(email);
+		jdbc.update("UPDATE password_reset_tokens t JOIN user_identities i ON i.user_id = t.user_id "
+				+ "SET t.created_at = NOW(6) - INTERVAL 23 HOUR WHERE i.subject = ?", email);
 		accounts.requestPasswordReset(email);
 		verify(mailSender, after(500).times(1)).send(Mockito.any(SimpleMailMessage.class));
+
+		jdbc.update("UPDATE password_reset_tokens t JOIN user_identities i ON i.user_id = t.user_id "
+				+ "SET t.created_at = NOW(6) - INTERVAL 25 HOUR WHERE i.subject = ?", email);
+		accounts.requestPasswordReset(email);
+		verify(mailSender, timeout(2000).times(2)).send(Mockito.any(SimpleMailMessage.class));
 	}
 
 	@Test

@@ -49,7 +49,8 @@ Implemented:
 - signup: one LOCAL (email/password) account per client network per 24 h (IPv4 address / IPv6 /64;
   only SHA-256 of the key stored, purged after a day). Replaces email verification for now (decision
   2026-09-29: no email verification yet). Future social signups are exempt.
-- per account: at most one reset mail per minute (user row locked, so concurrent requests can't bypass).
+- per account: at most one reset mail per 24 h (user row locked, so concurrent requests can't bypass).
+  Trade-off: a lost mail means waiting a day; the page can't say so without revealing the account.
 - `/oauth2/token` is not IP-limited (every user of a product refreshes through that product's server IP);
   it requires the client secret.
 - No per-account login lockout (would enable lockout DoS).
