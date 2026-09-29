@@ -1,0 +1,59 @@
+# Production stack for auth.mirattic.com. Secrets: deploy/.env (see .env.example, gitignored).
+# HTTPS is terminated by the host's Caddy (deploy/Caddyfile). Runbook: docs/deployment.md.
+name: mirattic-auth
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: mirattic_auth
+      MYSQL_USER: mirattic_auth
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD"]
+      interval: 5s
+      retries: 30
+
+  # The image runs as uid 65534; the key volume must be writable by it (first start generates the key).
+  keys-init:
+    image: busybox
+    command: ["sh", "-c", "chown 65534:65534 /keys && chmod 700 /keys"]
+    volumes:
+      - signing-key:/keys
+
+  auth:
+    image: mirattic-auth:current
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      keys-init:
+        condition: service_completed_successfully
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/mirattic_auth?preserveInstants=true&connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true
+      DB_USERNAME: mirattic_auth
+      DB_PASSWORD: ${DB_PASSWORD}
+      AUTH_ISSUER: https://auth.mirattic.com
+      AUTH_SIGNING_KEY_PATH: /keys/signing-key.jwk.json
+      # Generated once into the persistent volume, then reused. Back the volume up (docs/deployment.md).
+      AUTH_SIGNING_KEY_GENERATE: "true"
+      SYNC_CLIENT_SECRET_HASH: ${SYNC_CLIENT_SECRET_HASH}
+      FLOW_CLIENT_SECRET_HASH: ${FLOW_CLIENT_SECRET_HASH}
+      SPRING_MAIL_HOST: ${MAIL_HOST}
+      SPRING_MAIL_PORT: ${MAIL_PORT}
+      SPRING_MAIL_USERNAME: ${MAIL_USERNAME}
+      SPRING_MAIL_PASSWORD: ${MAIL_PASSWORD}
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: "true"
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: "true"
+      SERVER_SERVLET_SESSION_COOKIE_SECURE: "true"
+    volumes:
+      - signing-key:/keys
+    ports:
+      - "127.0.0.1:8091:9000"
+
+volumes:
+  mysql-data:
+  signing-key:

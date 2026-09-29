@@ -4,3 +4,4 @@ target/
 .DS_Store
 *.jwk.json
 .env
+!deploy/.env.example

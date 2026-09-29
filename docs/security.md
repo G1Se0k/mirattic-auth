@@ -33,19 +33,22 @@ Use `kid` for key rotation.
 - loopback redirects (`http://127.0.0.1:<port>/...`) match any port (Spring default, RFC 8252); dev-only since prod registers none (`clients.md`)
 
 ## Auth Web Session
-- Secure
+- Secure (prod: `SERVER_SERVLET_SESSION_COOKIE_SECURE=true`)
 - HttpOnly
-- appropriate SameSite
+- SameSite=Lax (top-level GET from products to `/oauth2/authorize` keeps SSO)
 - CSRF protection for cookie-authenticated state changes
 
 ## Rate Limits
-Apply to:
-- login
-- signup
-- password reset
-- token abuse paths
-
-Avoid easy account-lockout DoS.
+Implemented:
+- per client IP, fixed 1-minute window, 20/min (`auth.rate-limit-per-minute`): `POST /login`, `/signup`,
+  `/password/reset`, `/password/reset/confirm`, `/account/password` → 429. Runs before Spring Security.
+  Path matched decoded / without `;` params (as Spring resolves it). IPv6 keyed per /64. At most 100k
+  tracked clients per minute (new ones get 429 while full); windows evicted by a 1-minute job.
+- per account: at most one reset mail per minute (user row locked, so concurrent requests can't bypass).
+- `/oauth2/token` is not IP-limited (every user of a product refreshes through that product's server IP);
+  it requires the client secret.
+- No per-account login lockout (would enable lockout DoS).
+- In-memory counters: move to Redis if Auth runs more than one instance.
 
 ## Enumeration
 Do not unnecessarily reveal whether an email/account exists.

@@ -116,6 +116,29 @@ class AccountFlowTest extends IntegrationTest {
 	}
 
 	@Test
+	void resetMailIsSentAtMostOncePerMinutePerAccount() throws Exception {
+		Mockito.reset(mailSender);
+		String email = email();
+		accounts.signup(email, "password-1", "M");
+		accounts.requestPasswordReset(email);
+		verify(mailSender, timeout(2000)).send(Mockito.any(SimpleMailMessage.class));
+		accounts.requestPasswordReset(email);
+		accounts.requestPasswordReset(email);
+		verify(mailSender, after(500).times(1)).send(Mockito.any(SimpleMailMessage.class));
+	}
+
+	@Test
+	void concurrentResetRequestsSendOneMail() throws Exception {
+		Mockito.reset(mailSender);
+		String email = email();
+		accounts.signup(email, "password-1", "P");
+		for (int i = 0; i < 8; i++) {
+			accounts.requestPasswordReset(email); // @Async: these run in parallel
+		}
+		verify(mailSender, after(2000).times(1)).send(Mockito.any(SimpleMailMessage.class));
+	}
+
+	@Test
 	void expiredResetTokenIsRejected() {
 		String uid = accounts.signup(email(), "old-password", "E");
 		jdbc.update("INSERT INTO password_reset_tokens (id, user_id, token_hash, expires_at, created_at) "

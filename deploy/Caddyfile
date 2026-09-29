@@ -1,0 +1,9 @@
+# Site block for the host's Caddy (same host setup as Mirattic Sync: Cloudflare in front, client IP from
+# CF-Connecting-IP via the global trusted_proxies / client_ip_headers options — see Sync's deploy/Caddyfile).
+auth.mirattic.com {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:8091 {
+		# The rate limit keys on this (server.forward-headers-strategy=native).
+		header_up X-Forwarded-For {client_ip}
+	}
+}

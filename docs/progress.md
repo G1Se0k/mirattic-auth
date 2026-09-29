@@ -77,6 +77,13 @@ Create the central Mirattic Auth project and finalize the first deployable authe
 - asymmetric JWT signing
 - explicit account linking
 
+## Auth-only Work While Waiting (2026-09-29)
+- Hourly cleanup: expired `oauth2_authorization` (+ cascaded rotation rows) and reset tokens, 1 day slack
+- Rate limits: per-IP 20/min on password POSTs (before Security), 1 reset mail/min per account
+- Session cookie SameSite=Lax + HttpOnly; Secure in prod
+- Deploy files: `Dockerfile`, `deploy/compose.yml`, `deploy/Caddyfile`, `deploy/.env.example`; prod compose smoke-tested locally
+- 33 tests pass
+
 ## Phase 3 Status (2026-09-29)
 - Decision: option B — extension holds Auth tokens, Sync relays refresh (`migration.md`)
 - Auth: refresh reuse detection (V2 `rotated_refresh_tokens`; reuse after 10 s grace → whole authorization removed, owner client only); rotation is a row-locked compare-and-swap. 27 tests pass.
@@ -130,6 +137,7 @@ Not changed: Sync / Flow code (user request: do not touch yet).
 | deletion | hard delete (cascade) | soft delete `deleted_at`, PII cleared |
 
 ## Validation
+- 2026-09-29 Codex Sol hardening review (gpt-6-sol, high): encoded-path limiter bypass (high, reproduced: `POST /lo%67in` reached login) → decoded path match; concurrent reset mails (medium) → user row lock; limiter map scan/growth (medium) → scheduled eviction, 100k cap, IPv6 /64 keys. All fixed/tested; limiter re-verified on a running server.
 - 2026-09-29 Codex Sol reuse-detection review (gpt-6-sol, high), 2 rounds: concurrent refresh false reuse (high) → CAS; cross-client revoke (medium) → owner check; overlapping late duplicate revoking the winner (high) → 10 s grace (known trade-off, documented). All fixed/tested.
 - 2026-09-29 Codex Sol Phase 2 review (gpt-6-sol, high): 2 findings, both fixed — UserInfo disclosed claims beyond a downscoped access token (medium); STATE lookups were hashed and always missed (low, consent/PAR not enabled).
 - 2026-09-29 Codex Sol Phase 1 review (gpt-6-sol, high): 2 findings, both fixed — reset-request timing (whole request now async), password change now invalidates outstanding reset links.
@@ -140,16 +148,15 @@ Not changed: Sync / Flow code (user request: do not touch yet).
 
 ## Known Issues
 - Browser sessions are in-memory: password change/reset cannot end the user's other Auth browser sessions; server restart logs everyone out of Auth (not of products). Spring Session JDBC if needed.
-- No rate limit yet on login / signup / reset (email bombing possible). Phase 7, or earlier before public deploy.
 - No email verification: anyone can sign up with an email they don't own (then that owner can reset the password). Decide before public launch.
 - Disabling a user does not end an existing Auth browser session; `/oauth2/authorize` still issues a code, but the code can no longer be exchanged (ACTIVE check at token issuance). Session cleanup belongs to the disable/delete feature (Phase 5).
 - SAS schema `timestamp` columns: MySQL 2038 limit.
-- `oauth2_authorization` rows are never purged (expired/used ones accumulate). Add a cleanup job before prod.
+- Deploy automation missing: CI image build, deploy script with rollback, scheduled DB + signing-key backup.
 - Single signing key; rotation (previous public key in JWKS) is Phase 7.
 - Flow uses KAKAO / NAVER, not in Auth's LOCAL/GOOGLE/APPLE plan — needs decision.
 - Flow numeric IDs need a UUID mapping (Flow keeps `users.id`, adds Mirattic UID column) — Flow change, deferred.
 - Sync access-token `iss` is `mirattic`; Auth issuer is the URL — dual acceptance must handle both.
 
 ## Next Task
-Waiting for approval to change Sync code. When approved, start `migration.md` "Sync-side Work List" 1–5
-(no data import yet). Auth-side candidates meanwhile: `oauth2_authorization` cleanup job, rate limits.
+Waiting for approval to change Sync code. When approved, start `migration.md` "Sync-side Work List" 1–5.
+Auth-side left meanwhile: deploy automation (CI, rollback, backups), persistent browser sessions (Spring Session JDBC), email verification decision.

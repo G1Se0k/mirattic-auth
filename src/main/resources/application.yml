@@ -48,12 +48,22 @@ spring:
 server:
   port: ${PORT:9000}
   forward-headers-strategy: native
+  servlet:
+    session:
+      cookie:
+        # Top-level GET navigations from sync/flow to /oauth2/authorize still carry it (SSO).
+        same-site: lax
+        http-only: true
 
 auth:
+  # POST /login, /signup, /password/reset[/confirm], /account/password per client IP
+  rate-limit-per-minute: 20
   mail:
     from: ${AUTH_MAIL_FROM:noreply@mirattic.com}
   signing-key:
     path: ${AUTH_SIGNING_KEY_PATH:./.local/signing-key.jwk.json}
+    # true only with a persistent key location (local profile, prod volume); see docs/deployment.md
+    generate-if-missing: ${AUTH_SIGNING_KEY_GENERATE:false}
 
 management:
   # SMTP trouble must not mark Auth itself DOWN; mail failures are logged instead.

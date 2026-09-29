@@ -56,6 +56,8 @@ public abstract class IntegrationTest {
 		registry.add("spring.datasource.password", MYSQL::getPassword);
 		Path dir = Files.createTempDirectory("mirattic-auth-key");
 		registry.add("auth.signing-key.path", () -> dir.resolve("key.jwk.json").toString());
+		// Every test logs in from 127.0.0.1; the limiter itself is covered by AuthRateLimitFilterTest.
+		registry.add("auth.rate-limit-per-minute", () -> "100000");
 	}
 
 	@MockitoBean
