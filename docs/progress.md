@@ -43,11 +43,11 @@ Create the central Mirattic Auth project and finalize the first deployable authe
 - Validation: Codex Sol 11 passes (FAIL ×10 → all findings fixed → PASS); Auth 51, Flow 108, Sync 57 tests; local
   browser E2E of the whole Flow flow.
 
-### Phase 5 — Account Center
-- sessions
-- session revoke
-- identity management
-- account deletion
+### Phase 5 — Account Center (in progress; user decisions 2026-09-29)
+- sessions + session revoke: device list with per-device sign-out (`api.md` "Devices") — done
+- identity management: link / unlink Kakao and Naver only (adding email + password later) — next
+- account deletion: Auth asks Sync and Flow to delete their data (Auth-signed back-channel), deletes only if both
+  succeed; Flow may refuse (workspace owner) — after linking
 
 ### Phase 6 — External Providers
 - Google
@@ -174,9 +174,8 @@ Not changed: Sync / Flow code (user request: do not touch yet).
 - Sync's one pre-migration test account (production, 2026-09-28) lost its legacy login; signing in with a Mirattic account of any email creates a separate Sync profile.
 
 ## Next Task
-1. Flow (pre-existing, found by Codex during Phase 4, not caused by it): removing a workspace member keeps their
-   project access; removing a project member keeps their open chat subscription. Fix in Flow.
+1. Phase 5 — linking Kakao / Naver to the signed-in account, then account deletion (see Phase 5 above).
+   (The Flow membership / chat-subscription bugs were fixed in Flow 2026-09-29, `c8f8e47`, `3d4027a`; Claude review.)
 2. Kakao / Naver consoles: rename the apps to "Mirattic", privacy URL https://auth.mirattic.com/privacy; then Naver
    review (Kakao needs none for nickname only). Kakao unlink webhook: decided not to use (2026-09-29, user).
-3. Phase 5 — Account center (Mirattic account deletion, linking a second sign-in method).
-4. Optional: DMARC `p=quarantine`; rotate the Resend API key (shared in chat).
+3. Optional: DMARC `p=quarantine`; rotate the Resend API key (shared in chat).

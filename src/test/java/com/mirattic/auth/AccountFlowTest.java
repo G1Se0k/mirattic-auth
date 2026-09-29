@@ -18,6 +18,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.jayway.jsonpath.JsonPath;
 import com.mirattic.auth.account.AccountException;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.Base64;
+import java.util.HexFormat;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -236,6 +239,56 @@ class AccountFlowTest extends IntegrationTest {
 				+ "VALUES (UUID(), ?, SHA2(?, 256), NOW(6) + INTERVAL 30 MINUTE, NOW(6) - INTERVAL 5 MINUTE)", uid, token);
 		accounts.resetPassword(token, "password-3");
 		mvc.perform(get("/account").cookie(laptop)).andExpect(redirectedUrl("/login"));
+	}
+
+	@Test
+	void devicesListsBrowsersAndAppsAndEndsOneAtATime() throws Exception {
+		String email = email();
+		String uid = signup(email, "password-1", "D");
+		Cookie laptop = login(email, "password-1");
+		Cookie phone = mvc.perform(post("/login").with(csrf()).param("username", email).param("password", "password-1")
+						.header("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 "
+								+ "(KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"))
+				.andExpect(redirectedUrl("/")).andReturn().getResponse().getCookie("SESSION");
+		String refresh = JsonPath.read(exchange(authorize(laptop)), "$.refresh_token");
+		String appId = jdbc.queryForObject("SELECT id FROM oauth2_authorization WHERE principal_name = ?", String.class, uid);
+
+		String page = mvc.perform(get("/account").cookie(laptop)).andExpect(status().isOk())
+				.andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+		assertThat(page).contains("Safari · iPhone", "Mirattic Sync", "이 브라우저", "value=\"" + appId + "\"")
+				.doesNotContain(sessionId(phone), sessionId(laptop));
+		Matcher ids = Pattern.compile("name=\"id\" value=\"([0-9a-f]{64})\"").matcher(page);
+		assertThat(ids.find()).isTrue(); // the phone: this browser has no button
+		String phoneId = ids.group(1);
+		assertThat(ids.find()).isFalse();
+
+		// Someone else can't end them.
+		String otherEmail = email();
+		signup(otherEmail, "password-1", "O");
+		Cookie other = login(otherEmail, "password-1");
+		for (String id : new String[] {phoneId, appId}) {
+			mvc.perform(post("/account/devices/end").with(csrf()).cookie(other).param("id", id))
+					.andExpect(redirectedUrl("/account?ended#devices"));
+		}
+		mvc.perform(get("/account").cookie(phone)).andExpect(status().isOk());
+		assertThat(refresh(refresh)).contains("refresh_token");
+		String rotated = jdbc.queryForObject("SELECT id FROM oauth2_authorization WHERE principal_name = ?", String.class, uid);
+
+		mvc.perform(post("/account/devices/end").with(csrf()).cookie(laptop).param("id", phoneId));
+		mvc.perform(get("/account").cookie(phone)).andExpect(redirectedUrl("/login"));
+		mvc.perform(post("/account/devices/end").with(csrf()).cookie(laptop).param("id", rotated));
+		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM oauth2_authorization WHERE principal_name = ?",
+				Integer.class, uid)).isZero();
+		// This browser is ended by logging out, not from the list.
+		String laptopId = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+				.digest(sessionId(laptop).getBytes(StandardCharsets.UTF_8)));
+		mvc.perform(post("/account/devices/end").with(csrf()).cookie(laptop).param("id", laptopId));
+		mvc.perform(get("/account").cookie(laptop)).andExpect(status().isOk());
+	}
+
+	/** Spring Session's cookie is the base64 of the session id. */
+	private static String sessionId(Cookie c) {
+		return new String(Base64.getDecoder().decode(c.getValue()), StandardCharsets.UTF_8);
 	}
 
 	@Test

@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import com.mirattic.auth.account.Devices;
 import com.mirattic.auth.account.SocialLogin;
 import com.mirattic.auth.account.SocialReauth;
 import org.springframework.boot.security.oauth2.server.authorization.autoconfigure.servlet.OAuth2AuthorizationServerProperties;
@@ -42,6 +43,7 @@ import org.springframework.security.web.context.SecurityContextHolderFilter;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
+import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
 
@@ -83,9 +85,11 @@ class SecurityConfig {
 						.requestMatchers("/style.css", "/fonts/**", "/mark.svg", "/favicon-32.png",
 								"/apple-touch-icon.png").permitAll()
 						.anyRequest().authenticated())
-				.formLogin(f -> f.loginPage("/login"))
+				.formLogin(f -> f.loginPage("/login")
+						.successHandler(Devices.recording(new SavedRequestAwareAuthenticationSuccessHandler())))
 				// Kakao / Naver: /oauth2/authorization/{kakao|naver} → provider → /login/oauth2/code/{id}.
 				.oauth2Login(o -> o.loginPage("/login").failureUrl("/login?social_error")
+						.successHandler(Devices.recording(new SavedRequestAwareAuthenticationSuccessHandler()))
 						.authorizationEndpoint(a -> a.authorizationRequestResolver(new SocialReauth(registrations)))
 						.userInfoEndpoint(u -> u.userService(socialLogin)))
 				// Reset links carry a token in the URL; never leak it through Referer.

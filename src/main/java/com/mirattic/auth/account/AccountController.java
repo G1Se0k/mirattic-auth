@@ -21,11 +21,13 @@ class AccountController {
 
 	private final AccountService accounts;
 	private final RegisteredClientRepository clients;
+	private final Devices devices;
 	private final RequestCache requestCache = new HttpSessionRequestCache();
 
-	AccountController(AccountService accounts, RegisteredClientRepository clients) {
+	AccountController(AccountService accounts, RegisteredClientRepository clients, Devices devices) {
 		this.accounts = accounts;
 		this.clients = clients;
+		this.devices = devices;
 	}
 
 	@GetMapping("/")
@@ -102,18 +104,25 @@ class AccountController {
 	}
 
 	@GetMapping("/account")
-	String account(Authentication auth, Model model) {
+	String account(Authentication auth, HttpSession session, Model model) {
 		model.addAttribute("account", accounts.find(auth.getName()));
+		model.addAttribute("devices", devices.list(auth.getName(), session.getId()));
 		return "account";
 	}
 
+	@PostMapping("/account/devices/end")
+	String endDevice(Authentication auth, @RequestParam String id, HttpSession session) {
+		devices.end(auth.getName(), id, session.getId());
+		return "redirect:/account?ended#devices";
+	}
+
 	@PostMapping("/account/name")
-	String changeName(Authentication auth, @RequestParam String displayName, Model model) {
+	String changeName(Authentication auth, @RequestParam String displayName, HttpSession session, Model model) {
 		try {
 			accounts.changeDisplayName(auth.getName(), displayName);
 			return "redirect:/account?saved";
 		} catch (AccountException e) {
-			return accountWithError(auth, model, e);
+			return accountWithError(auth, session, model, e);
 		}
 	}
 
@@ -124,12 +133,12 @@ class AccountController {
 			accounts.changePassword(auth.getName(), currentPassword, password, session.getId());
 			return "redirect:/account?password";
 		} catch (AccountException e) {
-			return accountWithError(auth, model, e);
+			return accountWithError(auth, session, model, e);
 		}
 	}
 
-	private String accountWithError(Authentication auth, Model model, AccountException e) {
+	private String accountWithError(Authentication auth, HttpSession session, Model model, AccountException e) {
 		model.addAttribute("error", e.getMessage());
-		return account(auth, model);
+		return account(auth, session, model);
 	}
 }

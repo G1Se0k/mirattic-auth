@@ -12,6 +12,7 @@
 
     <p class="note error" th:if="${error}" th:text="${error}"></p>
     <p class="note ok" th:if="${param.saved}">이름을 저장했습니다.</p>
+    <p class="note ok" th:if="${param.ended}">로그아웃시켰습니다. 앱은 15분 안에 로그아웃됩니다.</p>
     <p class="note ok" th:if="${param.password}">비밀번호를 변경했습니다. 다른 기기와 앱에서는 다시 로그인해야 합니다.</p>
 
     <dl class="facts">
@@ -47,6 +48,25 @@
         </div>
         <button type="submit" class="primary">비밀번호 변경</button>
       </form>
+    </section>
+
+    <section id="devices">
+      <h2>로그인된 기기</h2>
+      <ul class="devices">
+        <li th:each="d : ${devices}">
+          <div>
+            <strong th:text="${d.label}">Chrome · Mac</strong>
+            <small th:if="${d.current}">이 브라우저</small>
+            <small th:if="${d.app}">앱</small>
+            <p th:text="${'마지막 사용 ' + #temporals.format(d.lastUsedAt, 'M월 d일 HH:mm')}
+                + (${d.signedInAt} ? ${' · 로그인 ' + #temporals.format(d.signedInAt, 'M월 d일')} : '')">마지막 사용 9월 29일 14:02</p>
+          </div>
+          <form th:unless="${d.current}" method="post" th:action="@{/account/devices/end}">
+            <input type="hidden" name="id" th:value="${d.id}">
+            <button type="submit" class="text-button">로그아웃</button>
+          </form>
+        </li>
+      </ul>
     </section>
   </div>
 </main>

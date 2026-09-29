@@ -27,10 +27,15 @@ Password change / reset deletes the user's `oauth2_authorization` rows (refresh 
 
 A JSON `GET /api/account/me` was dropped for now: products get identity from ID token / UserInfo. Add it with the account center if needed.
 
-## Sessions
-- `GET /api/account/sessions`
-- `DELETE /api/account/sessions/{id}`
-- optional bulk revoke endpoint
+## Devices (Phase 5, `Devices`)
+Server-rendered on `/account` ("로그인된 기기"), no JSON API.
+- Browser: each Auth browser session of the user (Spring Session). The browser and OS ("Chrome · Windows", from
+  User-Agent) and the sign-in time are stored on the session at sign-in (password or Kakao / Naver); older
+  sessions show "알 수 없는 브라우저". Identified in the page by SHA-256 of the session id (the id is the cookie).
+- App: each `oauth2_authorization` of the user with a live refresh token, named by the client (Mirattic Sync /
+  Flow). Last used = last refresh.
+- `POST /account/devices/end` (session + CSRF, `id`): ends that browser session or deletes that authorization (its
+  access token lapses within 15 min). Only the user's own; this browser is ended by `/logout`, not here.
 
 ## Identity Linking (later)
 `POST /api/account/identities/{provider}/link`
