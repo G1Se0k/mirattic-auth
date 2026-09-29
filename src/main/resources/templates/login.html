@@ -3,8 +3,9 @@
 <head th:replace="~{fragments :: head('로그인')}"></head>
 <body>
 <main class="landing">
-  <h1 th:replace="~{fragments :: lockup}"></h1>
+  <div th:replace="~{fragments :: lockup}"></div>
   <div class="panel">
+    <h1 class="sr-only">로그인</h1>
     <p class="lede context" th:if="${clientName}">로그인하면 <strong th:text="${clientName}">Mirattic Sync</strong>로 돌아갑니다.</p>
 
     <p class="note error" th:if="${param.error}">이메일 또는 비밀번호가 맞지 않습니다.</p>

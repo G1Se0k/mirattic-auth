@@ -20,10 +20,10 @@
 <footer th:fragment="bottom">© Mirattic</footer>
 
 <!-- Logo lockup: mark + "Mirattic" wordmark (dot of the last i in the brand blue, as in the Flow logo). -->
-<h1 class="lockup" th:fragment="lockup">
+<div class="lockup" th:fragment="lockup" role="img" aria-label="Mirattic">
   <img th:src="@{/mark.svg}" alt="" width="128" height="128">
-  <span class="wordmark">Miratt<span class="i">ı<span class="dot"></span></span>c</span>
-</h1>
+  <span class="wordmark" aria-hidden="true">Miratt<span class="i">ı<span class="dot"></span></span>c</span>
+</div>
 
 <!-- "표시" toggle for password inputs: <div class="input"><input type="password" ...><button class="peek" ...> -->
 <script th:fragment="peek">

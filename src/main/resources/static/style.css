@@ -266,3 +266,12 @@ main.landing { margin-top: 9vh; }
 @media (max-width: 480px) {
   main.landing { margin-top: 5vh; }
 }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

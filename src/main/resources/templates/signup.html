@@ -2,10 +2,10 @@
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments :: head('회원가입')}"></head>
 <body>
-<header th:replace="~{fragments :: top}"></header>
-<main>
+<main class="landing">
+  <div th:replace="~{fragments :: lockup}"></div>
   <div class="panel">
-    <h1 class="spaced">Mirattic 계정 만들기</h1>
+    <h1 class="spaced">회원가입</h1>
 
     <p class="note error" th:if="${error}" th:text="${error}"></p>
 
