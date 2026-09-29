@@ -20,10 +20,16 @@ server:
   forward-headers-strategy: native
 
 auth:
+  mail:
+    from: ${AUTH_MAIL_FROM:noreply@mirattic.com}
   signing-key:
     path: ${AUTH_SIGNING_KEY_PATH:./.local/signing-key.jwk.json}
 
 management:
+  # SMTP trouble must not mark Auth itself DOWN; mail failures are logged instead.
+  health:
+    mail:
+      enabled: false
   endpoints:
     web:
       exposure:

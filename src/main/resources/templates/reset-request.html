@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>비밀번호 찾기</title><link rel="stylesheet" th:href="@{/style.css}"></head>
+<body><main>
+  <h1>비밀번호 찾기</h1>
+  <div class="msg ok" th:if="${sent}">가입된 이메일이라면 재설정 링크를 보냈습니다. 메일함을 확인하세요.</div>
+  <form method="post" th:action="@{/password/reset}" th:unless="${sent}">
+    <label for="email">가입한 이메일</label>
+    <input id="email" name="email" type="email" autocomplete="email" required autofocus>
+    <button type="submit">재설정 링크 받기</button>
+  </form>
+  <div class="links"><a th:href="@{/login}">로그인으로</a></div>
+</main></body>
+</html>

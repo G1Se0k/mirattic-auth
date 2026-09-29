@@ -1,5 +1,5 @@
 # Current Phase
-Phase 0 — Architecture / Bootstrap
+Phase 1 — Local Account (done)
 
 ## Goal
 Create the central Mirattic Auth project and finalize the first deployable authentication architecture.
@@ -77,6 +77,16 @@ Create the central Mirattic Auth project and finalize the first deployable authe
 - asymmetric JWT signing
 - explicit account linking
 
+## Phase 1 Status (2026-09-29)
+Done:
+- Thymeleaf pages: `/login` (custom, links to signup/reset), `/signup`, `/password/reset`, `/password/reset/confirm`, `/account` (name, password change, logout) — Korean UI, light/dark
+- `AccountService` (JdbcTemplate): signup, reset request/confirm, change password/name. DB clock for all times.
+- `PasswordResetMailer`: SMTP via `JavaMailSender`; the whole reset request is `@Async`. Local: Mailpit in docker-compose (UI http://localhost:8025)
+- Password change/reset deletes the user's OAuth authorizations
+- `Referrer-Policy: no-referrer`; mail health indicator off (SMTP outage must not mark Auth DOWN)
+- Tests: `AccountFlowTest` 7 + `AuthBootstrapTest` 4 = 11 pass. Includes end-to-end signup → login → authorize (PKCE) → token, asserting ID/access token `sub` = UID, `nonce`, `iss`.
+- Manual smoke (local): signup → reset mail in Mailpit → login → account page
+
 ## Phase 0 Status (2026-09-29)
 Done:
 - Maven project (Spring Boot 4.1.1, Java 21, `spring-boot-starter-security-oauth2-authorization-server` = Spring Security 7.1.1 AS)
@@ -102,12 +112,16 @@ Not changed: Sync / Flow code (user request: do not touch yet).
 | deletion | hard delete (cascade) | soft delete `deleted_at`, PII cleared |
 
 ## Validation
+- 2026-09-29 Codex Sol Phase 1 review (gpt-6-sol, high): 2 findings, both fixed — reset-request timing (whole request now async), password change now invalidates outstanding reset links.
 - 2026-09-29 Codex Sol (gpt-6-sol, high): 5 findings.
   - fixed: loaded signing key without `kid` now refused; dev client no longer claims refresh/offline_access.
   - recorded below: disabled-user SSO session, raw refresh-token storage, public-client refresh.
   - by design: loopback redirect port (see security.md).
 
 ## Known Issues
+- Browser sessions are in-memory: password change/reset cannot end the user's other Auth browser sessions; server restart logs everyone out of Auth (not of products). Spring Session JDBC if needed.
+- No rate limit yet on login / signup / reset (email bombing possible). Phase 7, or earlier before public deploy.
+- No email verification: anyone can sign up with an email they don't own (then that owner can reset the password). Decide before public launch.
 - Disabling a user does not end an existing Auth browser session; SSO can still issue codes. Must be solved together with the disable/delete feature (Phase 1/5): invalidate sessions + authorizations, or re-check status on /oauth2/authorize.
 - SAS does not issue refresh tokens to public clients (desktop/extension). Phase 2: custom public-client refresh with rotation + reuse detection, or short sessions + silent re-auth.
 - SAS `JdbcOAuth2AuthorizationService` stores refresh tokens / auth codes in plaintext (security.md wants hashes). Decide in Phase 2: hash-wrapping service or accept with DB access controls.
@@ -122,4 +136,4 @@ Not changed: Sync / Flow code (user request: do not touch yet).
 Decide (user):
 1. Sync desktop / extension / Flow web redirect URIs (exact) and client IDs,
 2. Flow KAKAO / NAVER: keep as Auth providers or force LOCAL,
-3. then Phase 1: signup / password reset API.
+3. Phase 2: Sync/Flow client registration, refresh strategy for public clients, UserInfo, revoke.

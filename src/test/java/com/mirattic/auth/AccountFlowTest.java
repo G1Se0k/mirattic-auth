@@ -1,0 +1,239 @@
+package com.mirattic.auth;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.after;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.verify;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestBuilders.formLogin;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
+
+import com.jayway.jsonpath.JsonPath;
+import com.mirattic.auth.account.AccountException;
+import com.mirattic.auth.account.AccountService;
+import java.net.URI;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.Base64;
+import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mock.web.MockHttpSession;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.web.util.UriComponentsBuilder;
+
+class AccountFlowTest extends IntegrationTest {
+
+	static final String VERIFIER = "dBjftJeZ4CVP-mJ92K9qOVHGwVcRZa8uAmhPJ5lDSWk";
+	static final String CHALLENGE = s256(VERIFIER);
+	static final String REDIRECT = "http://127.0.0.1:8081/callback";
+
+	@Autowired AccountService accounts;
+
+	static String s256(String verifier) {
+		try {
+			return Base64.getUrlEncoder().withoutPadding().encodeToString(
+					MessageDigest.getInstance("SHA-256").digest(verifier.getBytes(StandardCharsets.US_ASCII)));
+		} catch (Exception e) {
+			throw new IllegalStateException(e);
+		}
+	}
+
+	static String email() {
+		return "u" + UUID.randomUUID().toString().substring(0, 8) + "@mirattic.com";
+	}
+
+	MockHttpSession login(String email, String password) throws Exception {
+		MvcResult r = mvc.perform(formLogin("/login").user(email).password(password))
+				.andExpect(redirectedUrl("/"))
+				.andReturn();
+		return (MockHttpSession) r.getRequest().getSession(false);
+	}
+
+	void loginFails(String email, String password) throws Exception {
+		mvc.perform(formLogin("/login").user(email).password(password)).andExpect(redirectedUrl("/login?error"));
+	}
+
+	@Test
+	void signupPageThenLoginThenPkceIssuesTokensWithUidAsSub() throws Exception {
+		String email = email();
+		mvc.perform(post("/signup").with(csrf())
+						.param("email", " " + email.toUpperCase() + " ")
+						.param("password", "correct horse")
+						.param("displayName", "  기석  "))
+				.andExpect(redirectedUrl("/login?signup"));
+		String uid = jdbc.queryForObject("SELECT user_id FROM user_identities WHERE subject = ?", String.class, email);
+		assertThat(accounts.find(uid).displayName()).isEqualTo("기석");
+
+		MockHttpSession session = login(email, "correct horse");
+		String location = mvc.perform(get(URI.create("/oauth2/authorize?response_type=code&client_id=mirattic-dev"
+						+ "&redirect_uri=" + REDIRECT + "&scope=openid%20profile&state=st1&nonce=n1"
+						+ "&code_challenge=" + CHALLENGE + "&code_challenge_method=S256")).session(session))
+				.andExpect(status().is3xxRedirection())
+				.andReturn().getResponse().getRedirectedUrl();
+		assertThat(location).startsWith(REDIRECT + "?code=").contains("state=st1");
+		String code = URLDecoder.decode(
+				UriComponentsBuilder.fromUriString(location).build().getQueryParams().getFirst("code"),
+				StandardCharsets.UTF_8);
+
+		// Token request parameters must be in the form body.
+		String body = mvc.perform(post("/oauth2/token")
+						.contentType(MediaType.APPLICATION_FORM_URLENCODED)
+						.content("grant_type=authorization_code&client_id=mirattic-dev&code_verifier=" + VERIFIER
+								+ "&redirect_uri=" + URLEncoder.encode(REDIRECT, StandardCharsets.UTF_8)
+								+ "&code=" + URLEncoder.encode(code, StandardCharsets.UTF_8)))
+				.andDo(r -> assertThat(r.getResponse().getStatus()).as(r.getResponse().getContentAsString()).isEqualTo(200))
+				.andExpect(status().isOk())
+				.andReturn().getResponse().getContentAsString();
+
+		String idToken = JsonPath.read(body, "$.id_token");
+		String accessToken = JsonPath.read(body, "$.access_token");
+		String idClaims = new String(Base64.getUrlDecoder().decode(idToken.split("\\.")[1]), StandardCharsets.UTF_8);
+		String accessClaims = new String(Base64.getUrlDecoder().decode(accessToken.split("\\.")[1]),
+				StandardCharsets.UTF_8);
+		assertThat((String) JsonPath.read(idClaims, "$.sub")).isEqualTo(uid);
+		assertThat((String) JsonPath.read(idClaims, "$.nonce")).isEqualTo("n1");
+		assertThat((String) JsonPath.read(idClaims, "$.iss")).isEqualTo("http://localhost:9000");
+		assertThat((String) JsonPath.read(accessClaims, "$.sub")).isEqualTo(uid);
+		assertThat(body).doesNotContain("refresh_token");
+	}
+
+	@Test
+	void signupRejectsDuplicatesAndBadInputWithoutPartialRows() throws Exception {
+		String email = email();
+		accounts.signup(email, "password1", "A");
+		int users = jdbc.queryForObject("SELECT COUNT(*) FROM users", Integer.class);
+
+		assertThatThrownBy(() -> accounts.signup(email.toUpperCase(), "password1", "B"))
+				.isInstanceOf(AccountException.class).hasMessageContaining("이미 가입");
+		assertThatThrownBy(() -> accounts.signup("not-an-email", "password1", "B")).isInstanceOf(AccountException.class);
+		assertThatThrownBy(() -> accounts.signup(email(), "short", "B")).isInstanceOf(AccountException.class);
+		assertThatThrownBy(() -> accounts.signup(email(), "가".repeat(25), "B")) // 75 bytes > BCrypt's 72
+				.isInstanceOf(AccountException.class);
+		assertThatThrownBy(() -> accounts.signup(email(), "password1", "   ")).isInstanceOf(AccountException.class);
+		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM users", Integer.class)).isEqualTo(users);
+
+		mvc.perform(post("/signup").with(csrf()).param("email", email).param("password", "password1")
+						.param("displayName", "B"))
+				.andExpect(status().isOk())
+				.andExpect(view().name("signup"))
+				.andExpect(content().string(org.hamcrest.Matchers.containsString("이미 가입된 이메일입니다.")));
+	}
+
+	@Test
+	void passwordResetHidesUnknownEmailsAndIsOneTime() throws Exception {
+		Mockito.reset(mailSender);
+		String email = email();
+		String uid = accounts.signup(email, "old-password", "R");
+		jdbc.update("INSERT INTO oauth2_authorization (id, registered_client_id, principal_name, authorization_grant_type)"
+				+ " VALUES (?, 'x', ?, 'authorization_code')", UUID.randomUUID().toString(), uid);
+
+		String unknown = mvc.perform(post("/password/reset").with(csrf()).param("email", email()))
+				.andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+		verify(mailSender, after(300).never()).send(Mockito.any(SimpleMailMessage.class));
+		String known = mvc.perform(post("/password/reset").with(csrf()).param("email", email))
+				.andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+		assertThat(known).isEqualTo(unknown);
+
+		ArgumentCaptor<SimpleMailMessage> mail = ArgumentCaptor.forClass(SimpleMailMessage.class);
+		verify(mailSender, timeout(2000)).send(mail.capture());
+		assertThat(mail.getValue().getTo()).containsExactly(email);
+		Matcher m = Pattern.compile("token=([A-Za-z0-9_-]+)").matcher(mail.getValue().getText());
+		assertThat(m.find()).isTrue();
+		String token = m.group(1);
+		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM password_reset_tokens WHERE token_hash = ?",
+				Integer.class, token)).as("raw token must not be stored").isZero();
+
+		mvc.perform(post("/password/reset/confirm").with(csrf()).param("token", token).param("password", "new-password"))
+				.andExpect(redirectedUrl("/login?reset"));
+		loginFails(email, "old-password");
+		login(email, "new-password");
+		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM oauth2_authorization WHERE principal_name = ?",
+				Integer.class, uid)).as("reset ends OAuth authorizations").isZero();
+
+		mvc.perform(post("/password/reset/confirm").with(csrf()).param("token", token).param("password", "third-password"))
+				.andExpect(view().name("reset-confirm"));
+		login(email, "new-password");
+	}
+
+	@Test
+	void expiredResetTokenIsRejected() {
+		String uid = accounts.signup(email(), "old-password", "E");
+		jdbc.update("INSERT INTO password_reset_tokens (id, user_id, token_hash, expires_at, created_at) "
+				+ "VALUES (UUID(), ?, SHA2('expired-token', 256), NOW(6) - INTERVAL 1 SECOND, NOW(6))", uid);
+		assertThatThrownBy(() -> accounts.resetPassword("expired-token", "new-password"))
+				.isInstanceOf(AccountException.class);
+	}
+
+	@Test
+	void accountPageRequiresLoginAndChangesNameAndPassword() throws Exception {
+		mvc.perform(get("/account")).andExpect(redirectedUrl("/login"));
+
+		String email = email();
+		String uid = accounts.signup(email, "password-1", "Before");
+		MockHttpSession session = login(email, "password-1");
+
+		mvc.perform(get("/account").session(session))
+				.andExpect(status().isOk())
+				.andExpect(content().string(org.hamcrest.Matchers.containsString(uid)));
+		mvc.perform(post("/account/name").with(csrf()).session(session).param("displayName", "After"))
+				.andExpect(redirectedUrl("/account?saved"));
+		assertThat(accounts.find(uid).displayName()).isEqualTo("After");
+
+		mvc.perform(post("/account/password").with(csrf()).session(session)
+						.param("currentPassword", "wrong-pass").param("password", "password-2"))
+				.andExpect(view().name("account"));
+		mvc.perform(post("/account/password").with(csrf()).session(session)
+						.param("currentPassword", "password-1").param("password", "password-2"))
+				.andExpect(redirectedUrl("/account?password"));
+		loginFails(email, "password-1");
+		login(email, "password-2");
+
+		jdbc.update("INSERT INTO password_reset_tokens (id, user_id, token_hash, expires_at, created_at) "
+				+ "VALUES (UUID(), ?, SHA2(?, 256), NOW(6) + INTERVAL 30 MINUTE, NOW(6))", uid, "pending-" + uid);
+		mvc.perform(post("/account/password").with(csrf()).session(session)
+						.param("currentPassword", "password-2").param("password", "password-3"))
+				.andExpect(redirectedUrl("/account?password"));
+		assertThatThrownBy(() -> accounts.resetPassword("pending-" + uid, "attacker-pass"))
+				.as("password change kills outstanding reset links").isInstanceOf(AccountException.class);
+
+		mvc.perform(post("/account/name").session(session).param("displayName", "NoCsrf"))
+				.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void disabledAccountCannotLogInOrRequestReset() throws Exception {
+		Mockito.reset(mailSender);
+		String email = email();
+		String uid = accounts.signup(email, "password-1", "D");
+		jdbc.update("UPDATE users SET status = 'DISABLED' WHERE id = ?", uid);
+
+		loginFails(email, "password-1");
+		loginFails(email, "wrong-password");
+		accounts.requestPasswordReset(email);
+		verify(mailSender, after(300).never()).send(Mockito.any(SimpleMailMessage.class));
+	}
+
+	@Test
+	void resetPagesSendNoReferrer() throws Exception {
+		mvc.perform(get("/password/reset/confirm?token=abc"))
+				.andExpect(status().isOk())
+				.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+						.string("Referrer-Policy", "no-referrer"));
+	}
+}

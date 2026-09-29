@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Mirattic 계정</title><link rel="stylesheet" th:href="@{/style.css}"></head>
+<body><main>
+  <h1>Mirattic 계정</h1>
+  <div class="msg error" th:if="${error}" th:text="${error}"></div>
+  <div class="msg ok" th:if="${param.saved}">이름을 저장했습니다.</div>
+  <div class="msg ok" th:if="${param.password}">비밀번호를 변경했습니다. 다른 앱에서는 다시 로그인해야 합니다.</div>
+  <dl>
+    <dt>이메일</dt><dd th:text="${account.email}"></dd>
+    <dt>UID</dt><dd th:text="${account.id}"></dd>
+  </dl>
+
+  <h2>이름</h2>
+  <form method="post" th:action="@{/account/name}">
+    <input name="displayName" maxlength="64" required th:value="${account.displayName}" aria-label="이름">
+    <button type="submit">저장</button>
+  </form>
+
+  <h2>비밀번호 변경</h2>
+  <form method="post" th:action="@{/account/password}">
+    <label for="currentPassword">현재 비밀번호</label>
+    <input id="currentPassword" name="currentPassword" type="password" autocomplete="current-password" required>
+    <label for="password">새 비밀번호 (8자 이상)</label>
+    <input id="password" name="password" type="password" autocomplete="new-password" minlength="8" required>
+    <button type="submit">변경</button>
+  </form>
+
+  <form method="post" th:action="@{/logout}" class="links">
+    <button type="submit" class="link">로그아웃</button>
+  </form>
+</main></body>
+</html>

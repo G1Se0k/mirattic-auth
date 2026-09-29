@@ -10,48 +10,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.mysql.MySQLContainer;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@ActiveProfiles("local")
-@Testcontainers
-class AuthBootstrapTest {
+class AuthBootstrapTest extends IntegrationTest {
 
-	@Container
-	@ServiceConnection
-	static MySQLContainer mysql = new MySQLContainer("mysql:8.4")
-			.withUrlParam("preserveInstants", "true")
-			.withUrlParam("connectionTimeZone", "UTC")
-			.withUrlParam("forceConnectionTimeZoneToSession", "true");
-
-	@DynamicPropertySource
-	static void signingKey(DynamicPropertyRegistry registry) throws Exception {
-		Path dir = Files.createTempDirectory("mirattic-auth-key");
-		registry.add("auth.signing-key.path", () -> dir.resolve("key.jwk.json").toString());
-	}
-
-	@Autowired MockMvc mvc;
-	@Autowired JdbcTemplate jdbc;
 	@Autowired UserDetailsService userDetails;
 	@Autowired PasswordEncoder passwordEncoder;
 

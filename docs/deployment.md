@@ -63,7 +63,7 @@ Scale only when metrics justify it.
 
 ## Local Development
 ```bash
-docker compose up -d                                        # MySQL 8.4 on 3307, db mirattic_auth
+docker compose up -d                                        # MySQL 8.4 on 3307 + Mailpit (SMTP 1025, UI 8025)
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=local     # http://localhost:9000
 ./mvnw test                                                 # Testcontainers (Docker required)
 ```
@@ -76,3 +76,5 @@ docker compose up -d                                        # MySQL 8.4 on 3307,
 | `AUTH_SIGNING_KEY_PATH` | `./.local/signing-key.jwk.json` |
 | `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` | local MySQL on 3307 |
 | `PORT` | `9000` |
+| `SPRING_MAIL_HOST` / `SPRING_MAIL_PORT` / `SPRING_MAIL_USERNAME` / `SPRING_MAIL_PASSWORD` | local: Mailpit `localhost:1025`. Required in prod (no mail config → server does not start) |
+| `AUTH_MAIL_FROM` | `noreply@mirattic.com` |

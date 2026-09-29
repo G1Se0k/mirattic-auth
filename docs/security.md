@@ -49,6 +49,15 @@ Avoid easy account-lockout DoS.
 
 ## Enumeration
 Do not unnecessarily reveal whether an email/account exists.
+- login: one generic error for unknown email, wrong password, disabled account
+- password reset request: identical response; lookup + token + mail all run async, so response time does not depend on the account
+- signup: DOES reveal an existing email ("이미 가입된 이메일입니다"). Accepted trade-off; hiding it needs email verification first. Rate limit (Phase 7) bounds probing.
+
+## Password Reset
+- 32 random bytes (base64url), only SHA-256 stored, 30 min expiry
+- confirm locks the row (`FOR UPDATE`); any password change (reset or `/account/password`) marks every outstanding token of the user used
+- reset link is in the URL, so all pages send `Referrer-Policy: no-referrer`
+- mail failure is logged by exception type only (message body contains the token)
 
 ## Account Linking
 Never auto-merge solely on matching email.

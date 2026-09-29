@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>새 비밀번호</title><link rel="stylesheet" th:href="@{/style.css}"></head>
+<body><main>
+  <h1>새 비밀번호 설정</h1>
+  <div class="msg error" th:if="${error}" th:text="${error}"></div>
+  <form method="post" th:action="@{/password/reset/confirm}">
+    <input type="hidden" name="token" th:value="${token}">
+    <label for="password">새 비밀번호 (8자 이상)</label>
+    <input id="password" name="password" type="password" autocomplete="new-password" minlength="8" required autofocus>
+    <button type="submit">변경하기</button>
+  </form>
+  <div class="links"><a th:href="@{/password/reset}">링크 다시 받기</a></div>
+</main></body>
+</html>

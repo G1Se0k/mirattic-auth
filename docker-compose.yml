@@ -11,5 +11,11 @@ services:
       - "3307:3306"
     volumes:
       - mysql-data:/var/lib/mysql
+  # Catches outgoing mail (password reset). UI: http://localhost:8025
+  mailpit:
+    image: axllent/mailpit
+    ports:
+      - "1025:1025"
+      - "8025:8025"
 volumes:
   mysql-data:

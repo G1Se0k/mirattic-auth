@@ -3,29 +3,29 @@
 OAuth/OIDC endpoints follow standards/Spring Authorization Server.
 This file records Mirattic-specific account APIs.
 
-## Signup
-`POST /api/account/signup`
+## Account Pages (Phase 1, implemented)
+Passwords are typed only on Auth's own pages, never into product clients, so signup / reset / profile
+are server-rendered forms on `auth.mirattic.com` (form POST + CSRF token), not JSON APIs.
 
-```json
-{
-  "email": "user@example.com",
-  "password": "********",
-  "displayName": "Giseok"
-}
-```
+| Method | Path | Auth | Notes |
+|---|---|---|---|
+| GET/POST | `/login` | – | Spring Security form login (`username` = email). Any failure → `/login?error` (one generic message). After login the saved `/oauth2/authorize` request resumes. |
+| GET/POST | `/signup` | – | `email`, `displayName`, `password`. Creates user (UUID) + LOCAL identity, then → `/login?signup`. No auto-login. |
+| GET/POST | `/password/reset` | – | `email`. Same response whether or not the account exists. |
+| GET/POST | `/password/reset/confirm` | reset token | `token`, `password`. One-time, 30 min. → `/login?reset`. |
+| GET | `/account` | session | email, UID, display name. |
+| POST | `/account/name` | session + CSRF | `displayName` |
+| POST | `/account/password` | session + CSRF | `currentPassword`, `password` |
+| POST | `/logout` | session + CSRF | → `/login?logout` |
 
-Creates account + LOCAL identity.
+Validation:
+- email: trimmed + lower-cased, `x@y.z` shape, ≤ 254
+- display name: 1–64 chars after trim
+- password: ≥ 8 chars and ≤ 72 UTF-8 bytes (BCrypt limit; longer is refused, not truncated)
 
-## Current Account
-`GET /api/account/me`
+Password change / reset deletes the user's `oauth2_authorization` rows (refresh tokens die).
 
-Returns UID, display name, status, and linked identities.
-
-## Password Reset
-- `POST /api/account/password/reset/request`
-- `POST /api/account/password/reset/confirm`
-
-Reset request must not reveal whether an email exists.
+A JSON `GET /api/account/me` was dropped for now: products get identity from ID token / UserInfo. Add it with the account center if needed.
 
 ## Sessions
 - `GET /api/account/sessions`

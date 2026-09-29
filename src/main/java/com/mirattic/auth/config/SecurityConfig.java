@@ -23,6 +23,7 @@ import org.springframework.security.oauth2.server.authorization.OAuth2Authorizat
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
 
 @Configuration
@@ -52,9 +53,12 @@ class SecurityConfig {
 	SecurityFilterChain defaultChain(HttpSecurity http) throws Exception {
 		return http
 				.authorizeHttpRequests(a -> a
-						.requestMatchers("/actuator/health").permitAll()
+						.requestMatchers("/actuator/health", "/login", "/signup", "/password/reset",
+								"/password/reset/confirm", "/style.css", "/error").permitAll()
 						.anyRequest().authenticated())
-				.formLogin(withDefaults())
+				.formLogin(f -> f.loginPage("/login"))
+				// Reset links carry a token in the URL; never leak it through Referer.
+				.headers(h -> h.referrerPolicy(r -> r.policy(ReferrerPolicy.NO_REFERRER)))
 				.build();
 	}
 
