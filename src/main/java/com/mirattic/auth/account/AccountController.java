@@ -1,5 +1,7 @@
 package com.mirattic.auth.account;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -35,9 +37,9 @@ class AccountController {
 	/** No auto-login: after /login the saved OAuth authorize request (if any) resumes. */
 	@PostMapping("/signup")
 	String signup(@RequestParam String email, @RequestParam String password, @RequestParam String displayName,
-			Model model) {
+			HttpServletRequest request, Model model) {
 		try {
-			accounts.signup(email, password, displayName);
+			accounts.signup(email, password, displayName, request.getRemoteAddr());
 			return "redirect:/login?signup";
 		} catch (AccountException e) {
 			model.addAttribute("error", e.getMessage());
@@ -95,9 +97,9 @@ class AccountController {
 
 	@PostMapping("/account/password")
 	String changePassword(Authentication auth, @RequestParam String currentPassword, @RequestParam String password,
-			Model model) {
+			HttpSession session, Model model) {
 		try {
-			accounts.changePassword(auth.getName(), currentPassword, password);
+			accounts.changePassword(auth.getName(), currentPassword, password, session.getId());
 			return "redirect:/account?password";
 		} catch (AccountException e) {
 			return accountWithError(auth, model, e);

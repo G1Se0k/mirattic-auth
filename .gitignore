@@ -5,3 +5,4 @@ target/
 *.jwk.json
 .env
 !deploy/.env.example
+deploy/client-secrets.txt

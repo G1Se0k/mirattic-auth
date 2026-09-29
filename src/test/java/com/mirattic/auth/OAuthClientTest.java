@@ -8,12 +8,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
-import com.mirattic.auth.account.AccountService;
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.mock.web.MockHttpSession;
+import jakarta.servlet.http.Cookie;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.OAuth2RefreshToken;
@@ -27,16 +26,15 @@ import org.springframework.test.web.servlet.ResultActions;
 /** Confidential clients (client_secret_basic + PKCE), refresh rotation, revocation. docs/clients.md */
 class OAuthClientTest extends IntegrationTest {
 
-	@Autowired AccountService accounts;
 	@Autowired OAuth2AuthorizationService authorizations;
 	@Autowired RegisteredClientRepository clients;
 
-	record Session(String uid, String email, MockHttpSession browser) {
+	record Session(String uid, String email, Cookie browser) {
 	}
 
 	Session newUser() throws Exception {
 		String email = email();
-		String uid = accounts.signup(email, "password-1", "C");
+		String uid = signup(email, "password-1", "C");
 		return new Session(uid, email, login(email, "password-1"));
 	}
 
@@ -112,7 +110,7 @@ class OAuthClientTest extends IntegrationTest {
 	void passwordChangeEndsRefresh() throws Exception {
 		Session s = newUser();
 		String r = JsonPath.read(exchange(authorize(s.browser())), "$.refresh_token");
-		accounts.changePassword(s.uid(), "password-1", "password-2");
+		accounts.changePassword(s.uid(), "password-1", "password-2", null);
 		assertThat(refresh(r)).contains("invalid_grant");
 	}
 

@@ -77,6 +77,12 @@ Create the central Mirattic Auth project and finalize the first deployable authe
 - asymmetric JWT signing
 - explicit account linking
 
+## Auth-only Work While Waiting, part 2 (2026-09-29)
+- Deploy automation: `.github/workflows/ci.yml` (test → arm64 image → SSH → `deploy/deploy.sh`, gated by repo variable `DEPLOY_ENABLED`), `deploy.sh` (first-run secret generation incl. client secrets, health check, rollback), `backup.sh` (daily DB + signing key, 7 days)
+- Browser sessions in MySQL (Spring Session JDBC, V3); password change ends other sessions, reset ends all
+- Decision: no email verification for now → one LOCAL signup per network (IPv4 / IPv6 /64) per 24 h (V4 `signup_ips`, hashes only)
+- 35 tests pass
+
 ## Auth-only Work While Waiting (2026-09-29)
 - Hourly cleanup: expired `oauth2_authorization` (+ cascaded rotation rows) and reset tokens, 1 day slack
 - Rate limits: per-IP 20/min on password POSTs (before Security), 1 reset mail/min per account
@@ -137,6 +143,7 @@ Not changed: Sync / Flow code (user request: do not touch yet).
 | deletion | hard delete (cascade) | soft delete `deleted_at`, PII cleared |
 
 ## Validation
+- 2026-09-29 Codex Sol review of sessions / signup limit / deploy automation (gpt-6-sol, high): pass, no findings. Session survival across a server restart verified on a running server.
 - 2026-09-29 Codex Sol hardening review (gpt-6-sol, high): encoded-path limiter bypass (high, reproduced: `POST /lo%67in` reached login) → decoded path match; concurrent reset mails (medium) → user row lock; limiter map scan/growth (medium) → scheduled eviction, 100k cap, IPv6 /64 keys. All fixed/tested; limiter re-verified on a running server.
 - 2026-09-29 Codex Sol reuse-detection review (gpt-6-sol, high), 2 rounds: concurrent refresh false reuse (high) → CAS; cross-client revoke (medium) → owner check; overlapping late duplicate revoking the winner (high) → 10 s grace (known trade-off, documented). All fixed/tested.
 - 2026-09-29 Codex Sol Phase 2 review (gpt-6-sol, high): 2 findings, both fixed — UserInfo disclosed claims beyond a downscoped access token (medium); STATE lookups were hashed and always missed (low, consent/PAR not enabled).
@@ -147,16 +154,16 @@ Not changed: Sync / Flow code (user request: do not touch yet).
   - by design: loopback redirect port (see security.md).
 
 ## Known Issues
-- Browser sessions are in-memory: password change/reset cannot end the user's other Auth browser sessions; server restart logs everyone out of Auth (not of products). Spring Session JDBC if needed.
-- No email verification: anyone can sign up with an email they don't own (then that owner can reset the password). Decide before public launch.
+- No email verification (decided 2026-09-29): anyone can sign up with an email they don't own (the owner can take it over via reset). Mitigated by one signup per network per day.
+- Shared networks (office / campus / mobile CGNAT) get one signup per day in total.
 - Disabling a user does not end an existing Auth browser session; `/oauth2/authorize` still issues a code, but the code can no longer be exchanged (ACTIVE check at token issuance). Session cleanup belongs to the disable/delete feature (Phase 5).
 - SAS schema `timestamp` columns: MySQL 2038 limit.
-- Deploy automation missing: CI image build, deploy script with rollback, scheduled DB + signing-key backup.
+- Deploy pipeline not yet exercised on the real host (needs one-time setup in deployment.md).
 - Single signing key; rotation (previous public key in JWKS) is Phase 7.
 - Flow uses KAKAO / NAVER, not in Auth's LOCAL/GOOGLE/APPLE plan — needs decision.
 - Flow numeric IDs need a UUID mapping (Flow keeps `users.id`, adds Mirattic UID column) — Flow change, deferred.
 - Sync access-token `iss` is `mirattic`; Auth issuer is the URL — dual acceptance must handle both.
 
 ## Next Task
-Waiting for approval to change Sync code. When approved, start `migration.md` "Sync-side Work List" 1–5.
-Auth-side left meanwhile: deploy automation (CI, rollback, backups), persistent browser sessions (Spring Session JDBC), email verification decision.
+Waiting for approval to change Sync code (`migration.md` "Sync-side Work List" 1–5).
+Deploy: one-time host / GitHub setup in `deployment.md`, then first deploy of Auth.

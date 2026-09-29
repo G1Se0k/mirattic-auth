@@ -2,6 +2,7 @@ package com.mirattic.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.Mockito.after;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
@@ -16,7 +17,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.jayway.jsonpath.JsonPath;
 import com.mirattic.auth.account.AccountException;
-import com.mirattic.auth.account.AccountService;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.regex.Matcher;
@@ -26,11 +26,11 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mock.web.MockHttpSession;
+import org.springframework.test.web.servlet.ResultActions;
+import jakarta.servlet.http.Cookie;
 
 class AccountFlowTest extends IntegrationTest {
 
-	@Autowired AccountService accounts;
 
 	@Test
 	void signupThenLoginThenAuthorizationCodeIssuesTokensWithUidAsSub() throws Exception {
@@ -57,33 +57,58 @@ class AccountFlowTest extends IntegrationTest {
 		assertThat((String) JsonPath.read(body, "$.refresh_token")).isNotBlank();
 	}
 
+	ResultActions signupFrom(String ip, String email) throws Exception {
+		return mvc.perform(post("/signup").with(csrf()).with(r -> {
+			r.setRemoteAddr(ip);
+			return r;
+		}).param("email", email).param("password", "password-1").param("displayName", "N"));
+	}
+
+	@Test
+	void oneSignupPerNetworkPerDay() throws Exception {
+		String taken = email();
+		signup(taken, "password-1", "T");
+		// A failed signup (duplicate email) rolls back and does not use the slot.
+		signupFrom("198.51.100.7", taken).andExpect(content().string(containsString("이미 가입된 이메일입니다.")));
+		signupFrom("198.51.100.7", email()).andExpect(redirectedUrl("/login?signup"));
+		signupFrom("198.51.100.7", email()).andExpect(content().string(containsString("하루에 한 계정만")));
+		signupFrom("198.51.100.8", email()).andExpect(redirectedUrl("/login?signup"));
+		// IPv6: the whole /64 is one network.
+		signupFrom("2001:db8:aa:1::1", email()).andExpect(redirectedUrl("/login?signup"));
+		signupFrom("2001:db8:aa:1::2", email()).andExpect(content().string(containsString("하루에 한 계정만")));
+
+		jdbc.update("UPDATE signup_ips SET last_signup_at = NOW(6) - INTERVAL 25 HOUR");
+		signupFrom("198.51.100.7", email()).andExpect(redirectedUrl("/login?signup"));
+		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM signup_ips WHERE ip_hash LIKE '198%'", Integer.class))
+				.as("only hashes stored").isZero();
+	}
+
 	@Test
 	void signupRejectsDuplicatesAndBadInputWithoutPartialRows() throws Exception {
 		String email = email();
-		accounts.signup(email, "password1", "A");
+		signup(email, "password1", "A");
 		int users = jdbc.queryForObject("SELECT COUNT(*) FROM users", Integer.class);
 
-		assertThatThrownBy(() -> accounts.signup(email.toUpperCase(), "password1", "B"))
+		assertThatThrownBy(() -> signup(email.toUpperCase(), "password1", "B"))
 				.isInstanceOf(AccountException.class).hasMessageContaining("이미 가입");
-		assertThatThrownBy(() -> accounts.signup("not-an-email", "password1", "B")).isInstanceOf(AccountException.class);
-		assertThatThrownBy(() -> accounts.signup(email(), "short", "B")).isInstanceOf(AccountException.class);
-		assertThatThrownBy(() -> accounts.signup(email(), "가".repeat(25), "B")) // 75 bytes > BCrypt's 72
+		assertThatThrownBy(() -> signup("not-an-email", "password1", "B")).isInstanceOf(AccountException.class);
+		assertThatThrownBy(() -> signup(email(), "short", "B")).isInstanceOf(AccountException.class);
+		assertThatThrownBy(() -> signup(email(), "가".repeat(25), "B")) // 75 bytes > BCrypt's 72
 				.isInstanceOf(AccountException.class);
-		assertThatThrownBy(() -> accounts.signup(email(), "password1", "   ")).isInstanceOf(AccountException.class);
+		assertThatThrownBy(() -> signup(email(), "password1", "   ")).isInstanceOf(AccountException.class);
 		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM users", Integer.class)).isEqualTo(users);
 
-		mvc.perform(post("/signup").with(csrf()).param("email", email).param("password", "password1")
-						.param("displayName", "B"))
+		signupFrom("198.51.100.99", email)
 				.andExpect(status().isOk())
 				.andExpect(view().name("signup"))
-				.andExpect(content().string(org.hamcrest.Matchers.containsString("이미 가입된 이메일입니다.")));
+				.andExpect(content().string(containsString("이미 가입된 이메일입니다.")));
 	}
 
 	@Test
 	void passwordResetHidesUnknownEmailsAndIsOneTime() throws Exception {
 		Mockito.reset(mailSender);
 		String email = email();
-		String uid = accounts.signup(email, "old-password", "R");
+		String uid = signup(email, "old-password", "R");
 		jdbc.update("INSERT INTO oauth2_authorization (id, registered_client_id, principal_name, authorization_grant_type)"
 				+ " VALUES (?, 'x', ?, 'authorization_code')", UUID.randomUUID().toString(), uid);
 
@@ -119,7 +144,7 @@ class AccountFlowTest extends IntegrationTest {
 	void resetMailIsSentAtMostOncePerMinutePerAccount() throws Exception {
 		Mockito.reset(mailSender);
 		String email = email();
-		accounts.signup(email, "password-1", "M");
+		signup(email, "password-1", "M");
 		accounts.requestPasswordReset(email);
 		verify(mailSender, timeout(2000)).send(Mockito.any(SimpleMailMessage.class));
 		accounts.requestPasswordReset(email);
@@ -131,7 +156,7 @@ class AccountFlowTest extends IntegrationTest {
 	void concurrentResetRequestsSendOneMail() throws Exception {
 		Mockito.reset(mailSender);
 		String email = email();
-		accounts.signup(email, "password-1", "P");
+		signup(email, "password-1", "P");
 		for (int i = 0; i < 8; i++) {
 			accounts.requestPasswordReset(email); // @Async: these run in parallel
 		}
@@ -140,7 +165,7 @@ class AccountFlowTest extends IntegrationTest {
 
 	@Test
 	void expiredResetTokenIsRejected() {
-		String uid = accounts.signup(email(), "old-password", "E");
+		String uid = signup(email(), "old-password", "E");
 		jdbc.update("INSERT INTO password_reset_tokens (id, user_id, token_hash, expires_at, created_at) "
 				+ "VALUES (UUID(), ?, SHA2('expired-token', 256), NOW(6) - INTERVAL 1 SECOND, NOW(6))", uid);
 		assertThatThrownBy(() -> accounts.resetPassword("expired-token", "new-password"))
@@ -152,20 +177,20 @@ class AccountFlowTest extends IntegrationTest {
 		mvc.perform(get("/account")).andExpect(redirectedUrl("/login"));
 
 		String email = email();
-		String uid = accounts.signup(email, "password-1", "Before");
-		MockHttpSession session = login(email, "password-1");
+		String uid = signup(email, "password-1", "Before");
+		Cookie session = login(email, "password-1");
 
-		mvc.perform(get("/account").session(session))
+		mvc.perform(get("/account").cookie(session))
 				.andExpect(status().isOk())
 				.andExpect(content().string(org.hamcrest.Matchers.containsString(uid)));
-		mvc.perform(post("/account/name").with(csrf()).session(session).param("displayName", "After"))
+		mvc.perform(post("/account/name").with(csrf()).cookie(session).param("displayName", "After"))
 				.andExpect(redirectedUrl("/account?saved"));
 		assertThat(accounts.find(uid).displayName()).isEqualTo("After");
 
-		mvc.perform(post("/account/password").with(csrf()).session(session)
+		mvc.perform(post("/account/password").with(csrf()).cookie(session)
 						.param("currentPassword", "wrong-pass").param("password", "password-2"))
 				.andExpect(view().name("account"));
-		mvc.perform(post("/account/password").with(csrf()).session(session)
+		mvc.perform(post("/account/password").with(csrf()).cookie(session)
 						.param("currentPassword", "password-1").param("password", "password-2"))
 				.andExpect(redirectedUrl("/account?password"));
 		loginFails(email, "password-1");
@@ -173,21 +198,44 @@ class AccountFlowTest extends IntegrationTest {
 
 		jdbc.update("INSERT INTO password_reset_tokens (id, user_id, token_hash, expires_at, created_at) "
 				+ "VALUES (UUID(), ?, SHA2(?, 256), NOW(6) + INTERVAL 30 MINUTE, NOW(6))", uid, "pending-" + uid);
-		mvc.perform(post("/account/password").with(csrf()).session(session)
+		mvc.perform(post("/account/password").with(csrf()).cookie(session)
 						.param("currentPassword", "password-2").param("password", "password-3"))
 				.andExpect(redirectedUrl("/account?password"));
 		assertThatThrownBy(() -> accounts.resetPassword("pending-" + uid, "attacker-pass"))
 				.as("password change kills outstanding reset links").isInstanceOf(AccountException.class);
 
-		mvc.perform(post("/account/name").session(session).param("displayName", "NoCsrf"))
+		mvc.perform(post("/account/name").cookie(session).param("displayName", "NoCsrf"))
 				.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void browserSessionsLiveInTheDbAndAPasswordChangeEndsTheOtherOnes() throws Exception {
+		String email = email();
+		String uid = signup(email, "password-1", "S");
+		Cookie laptop = login(email, "password-1");
+		Cookie phone = login(email, "password-1");
+		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM SPRING_SESSION WHERE PRINCIPAL_NAME = ?",
+				Integer.class, uid)).isEqualTo(2);
+
+		mvc.perform(post("/account/password").with(csrf()).cookie(laptop)
+						.param("currentPassword", "password-1").param("password", "password-2"))
+				.andExpect(redirectedUrl("/account?password"));
+		mvc.perform(get("/account").cookie(laptop)).andExpect(status().isOk());
+		mvc.perform(get("/account").cookie(phone)).andExpect(redirectedUrl("/login"));
+
+		// A reset (not signed in) ends every session.
+		String token = "reset-" + uid;
+		jdbc.update("INSERT INTO password_reset_tokens (id, user_id, token_hash, expires_at, created_at) "
+				+ "VALUES (UUID(), ?, SHA2(?, 256), NOW(6) + INTERVAL 30 MINUTE, NOW(6) - INTERVAL 5 MINUTE)", uid, token);
+		accounts.resetPassword(token, "password-3");
+		mvc.perform(get("/account").cookie(laptop)).andExpect(redirectedUrl("/login"));
 	}
 
 	@Test
 	void disabledAccountCannotLogInOrRequestReset() throws Exception {
 		Mockito.reset(mailSender);
 		String email = email();
-		String uid = accounts.signup(email, "password-1", "D");
+		String uid = signup(email, "password-1", "D");
 		jdbc.update("UPDATE users SET status = 'DISABLED' WHERE id = ?", uid);
 
 		loginFails(email, "password-1");

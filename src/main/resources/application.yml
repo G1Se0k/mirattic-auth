@@ -42,6 +42,9 @@ spring:
               refresh-token-time-to-live: 30d
               # Rotation: every refresh returns a new refresh token; the old one stops working.
               reuse-refresh-tokens: false
+  session:
+    jdbc:
+      initialize-schema: never # Flyway V3
   autoconfigure:
     exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
 

@@ -10,10 +10,13 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.regex.Pattern;
+import com.mirattic.auth.config.ClientIp;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.session.FindByIndexNameSessionRepository;
+import org.springframework.session.Session;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,22 +33,30 @@ public class AccountService {
 	private final JdbcTemplate jdbc;
 	private final PasswordEncoder passwordEncoder;
 	private final PasswordResetMailer mailer;
+	private final FindByIndexNameSessionRepository<? extends Session> sessions;
 
-	AccountService(JdbcTemplate jdbc, PasswordEncoder passwordEncoder, PasswordResetMailer mailer) {
+	AccountService(JdbcTemplate jdbc, PasswordEncoder passwordEncoder, PasswordResetMailer mailer,
+			FindByIndexNameSessionRepository<? extends Session> sessions) {
 		this.jdbc = jdbc;
 		this.passwordEncoder = passwordEncoder;
 		this.mailer = mailer;
+		this.sessions = sessions;
 	}
 
-	/** Returns the new Mirattic UID. */
+	/**
+	 * Returns the new Mirattic UID. One LOCAL signup per client network (ClientIp) per 24 h; a signup
+	 * that fails later (e.g. duplicate email) rolls back and does not use up the slot.
+	 * Future social (Google/Apple) signups are not subject to this limit.
+	 */
 	@Transactional
-	public String signup(String email, String password, String displayName) {
+	public String signup(String email, String password, String displayName, String clientIp) {
 		String normalized = normalizeEmail(email);
 		if (!EMAIL.matcher(normalized).matches() || normalized.length() > 254) {
 			throw new AccountException("올바른 이메일을 입력하세요.");
 		}
 		String name = validDisplayName(displayName);
 		checkPassword(password);
+		claimSignupSlot(clientIp);
 		String id = UUID.randomUUID().toString();
 		jdbc.update("INSERT INTO users (id, display_name, status, created_at, updated_at) "
 				+ "VALUES (?, ?, 'ACTIVE', NOW(6), NOW(6))", id, name);
@@ -59,6 +70,18 @@ public class AccountService {
 			throw new AccountException("이미 가입된 이메일입니다.");
 		}
 		return id;
+	}
+
+	private void claimSignupSlot(String clientIp) {
+		String ipHash = sha256(String.valueOf(ClientIp.key(clientIp)));
+		jdbc.update("INSERT IGNORE INTO signup_ips (ip_hash, last_signup_at) VALUES (?, '1970-01-02')", ipHash);
+		// Row lock: concurrent signups from one network are serialized, so only one gets through.
+		boolean recent = jdbc.queryForObject("SELECT last_signup_at > NOW(6) - INTERVAL 1 DAY FROM signup_ips "
+				+ "WHERE ip_hash = ? FOR UPDATE", Boolean.class, ipHash);
+		if (recent) {
+			throw new AccountException("이 네트워크에서는 하루에 한 계정만 만들 수 있습니다. 내일 다시 시도하세요.");
+		}
+		jdbc.update("UPDATE signup_ips SET last_signup_at = NOW(6) WHERE ip_hash = ?", ipHash);
 	}
 
 	/**
@@ -96,11 +119,12 @@ public class AccountService {
 		if (ids.isEmpty()) {
 			throw new AccountException("링크가 만료되었거나 이미 사용되었습니다. 다시 요청하세요.");
 		}
-		setPassword(ids.getFirst(), newPassword);
+		setPassword(ids.getFirst(), newPassword, null);
 	}
 
+	/** Keeps only `currentSessionId` (the browser that changed it) signed in to Auth. */
 	@Transactional
-	public void changePassword(String userId, String currentPassword, String newPassword) {
+	public void changePassword(String userId, String currentPassword, String newPassword, String currentSessionId) {
 		List<String> hashes = jdbc.queryForList(
 				"SELECT password_hash FROM user_identities WHERE user_id = ? AND provider = 'LOCAL'",
 				String.class, userId);
@@ -108,7 +132,7 @@ public class AccountService {
 			throw new AccountException("현재 비밀번호가 올바르지 않습니다.");
 		}
 		checkPassword(newPassword);
-		setPassword(userId, newPassword);
+		setPassword(userId, newPassword, currentSessionId);
 	}
 
 	public void changeDisplayName(String userId, String displayName) {
@@ -124,13 +148,19 @@ public class AccountService {
 				""", (rs, n) -> new Account(rs.getString(1), rs.getString(2), rs.getString(3)), userId);
 	}
 
-	/** A new password also kills every outstanding reset link and OAuth authorization (refresh tokens). */
-	private void setPassword(String userId, String password) {
+	/**
+	 * A new password also kills every outstanding reset link, OAuth authorization (refresh tokens) and
+	 * Auth browser session (SSO) of the user, except `keepSessionId`.
+	 */
+	private void setPassword(String userId, String password, String keepSessionId) {
 		jdbc.update("UPDATE user_identities SET password_hash = ?, updated_at = NOW(6) "
 				+ "WHERE user_id = ? AND provider = 'LOCAL'", passwordEncoder.encode(password), userId);
 		jdbc.update("UPDATE password_reset_tokens SET used_at = NOW(6) WHERE user_id = ? AND used_at IS NULL",
 				userId);
 		jdbc.update("DELETE FROM oauth2_authorization WHERE principal_name = ?", userId);
+		sessions.findByPrincipalName(userId).keySet().stream()
+				.filter(id -> !id.equals(keepSessionId))
+				.forEach(sessions::deleteById);
 	}
 
 	/** BCrypt only uses the first 72 bytes, so longer passwords are refused rather than silently cut. */

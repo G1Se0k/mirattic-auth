@@ -5,9 +5,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.util.HexFormat;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -25,7 +22,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * excluded: all of a product's users refresh through that product's one server IP.
  *
  * The path is matched decoded and without `;` params, the way Spring resolves it (so `/lo%67in` counts
- * as `/login`). IPv6 clients are keyed by /64, since one host can rotate through a whole /64.
+ * as `/login`). Clients are keyed by ClientIp (IPv6 per /64).
  * ponytail: in-memory, capped at MAX_KEYS (new IPs are refused while full); Redis for >1 instance.
  */
 @Component
@@ -56,7 +53,7 @@ class AuthRateLimitFilter extends OncePerRequestFilter {
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
 			throws ServletException, IOException {
 		long minute = System.currentTimeMillis() / 60_000;
-		String key = clientKey(request.getRemoteAddr());
+		String key = ClientIp.key(request.getRemoteAddr());
 		boolean full = windows.size() >= MAX_KEYS && !windows.containsKey(key);
 		Window w = full ? null : windows.merge(key, new Window(minute, 1),
 				(old, one) -> old.minute() == minute ? new Window(minute, old.count() + 1) : one);
@@ -75,17 +72,5 @@ class AuthRateLimitFilter extends OncePerRequestFilter {
 	void evictOldWindows() {
 		long minute = System.currentTimeMillis() / 60_000;
 		windows.values().removeIf(w -> w.minute() < minute);
-	}
-
-	static String clientKey(String address) {
-		if (address == null || !address.contains(":")) {
-			return address;
-		}
-		try {
-			byte[] ip = InetAddress.getByName(address).getAddress();
-			return ip.length == 16 ? HexFormat.of().formatHex(ip, 0, 8) + "::/64" : address;
-		} catch (UnknownHostException e) {
-			return address;
-		}
 	}
 }

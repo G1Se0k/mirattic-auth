@@ -25,19 +25,38 @@ Separate logical DBs even if one MySQL server is used.
 ## TLS
 HTTPS required in production.
 
-## Production Runbook (files in `deploy/`, same host pattern as Mirattic Sync)
+## Production Deploy (automated, same pipeline as Mirattic Sync)
+Push to `main` → `.github/workflows/ci.yml`: `./mvnw test` → arm64 image → `docker load` over SSH on
+`giseok@ssh.mirattic.com` → `deploy/deploy.sh <sha>` (health check on `127.0.0.1:8091`, automatic rollback
+to the previous image, keeps 5 tagged images). The deploy job runs only when the repo variable
+`DEPLOY_ENABLED` is `true`.
+
+### One-time setup
+1. Host: clone the repo to `~/Documents/mirattic-auth` (read-only deploy key for the private repo).
+2. GitHub repo `G1Se0k/mirattic-auth`: secrets `DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS` (same values as Sync's),
+   variable `DEPLOY_ENABLED=true`.
+3. Host: run `sh ~/Documents/mirattic-auth/deploy/deploy.sh x` once. It creates (0600, gitignored):
+   - `deploy/.env`: DB passwords, `{bcrypt}` client-secret hashes (single-quoted), empty `MAIL_*`
+   - `deploy/client-secrets.txt`: the raw Sync / Flow client secrets → put each into its product server's
+     env, then delete the file.
+   It stops there until `MAIL_HOST` is filled in. Fill `MAIL_*` (transactional provider SMTP).
+4. Host Caddy: add the `deploy/Caddyfile` block (`auth.mirattic.com → 127.0.0.1:8091`); DNS via Cloudflare.
+5. Push to `main` (or rerun the workflow) → deployed.
+
+### Backups
+`deploy.sh` installs launchd agent `com.mirattic.auth.backup` (daily 04:30, deploy fails if it can't):
+`deploy/backup.sh` → `~/mirattic-auth-backups/` (0700): MySQL dump + signing key, 7 days retention.
+Losing the signing key = every issued token invalid (users re-login), not data loss.
+
+### Manual run (without CI)
 ```bash
-./mvnw package && docker build -t mirattic-auth:current .      # image
-cp deploy/.env.example deploy/.env && chmod 600 deploy/.env     # fill secrets (see comments inside)
-docker compose -f deploy/compose.yml up -d                      # mysql + auth on 127.0.0.1:8091
-# host Caddy: add deploy/Caddyfile block (auth.mirattic.com → 127.0.0.1:8091), DNS via Cloudflare
+./mvnw package && docker build -t mirattic-auth:manual .
+sh deploy/deploy.sh manual
 ```
-- Signing key: generated once into the `signing-key` volume on first start (0600, uid 65534), reused after.
-  **Back it up separately** (`docker run --rm -v mirattic-auth_signing-key:/k busybox cat /k/signing-key.jwk.json`)
-  and store it like a password. Losing it = every issued token invalid (users re-login), not data loss.
-- Verified locally 2026-09-29 with this compose: issuer via proxy headers, key persisted across restart
-  (same `kid`), login redirect `https://…/login`, cookie `Secure; HttpOnly; SameSite=Lax`, 429 on the 21st `POST /login`.
-- Not yet: CI image build, deploy script with rollback, automated DB/key backup (Sync has these; port when deploying).
+
+Verified locally 2026-09-29: prod compose (issuer via proxy headers, key persisted across restart, Secure
+cookie, 429 on 21st `POST /login`); first-run secret generation (hash verifies against raw secret, compose
+passes `$` unchanged into the container). Not run: the CI deploy job and launchd on the real host.
 
 ## Signing Keys
 Do not generate ephemeral signing keys on every restart.

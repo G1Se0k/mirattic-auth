@@ -34,6 +34,7 @@ class ExpiredDataCleanup {
 				+ "), COALESCE(refresh_token_expires_at, " + NONE + "), COALESCE(oidc_id_token_expires_at, " + NONE
 				+ ")) < NOW(6) - INTERVAL 1 DAY");
 		int resetTokens = jdbc.update("DELETE FROM password_reset_tokens WHERE expires_at < NOW(6) - INTERVAL 1 DAY");
+		jdbc.update("DELETE FROM signup_ips WHERE last_signup_at < NOW(6) - INTERVAL 1 DAY");
 		if (authorizations + resetTokens > 0) {
 			log.info("Purged {} expired authorizations, {} expired reset tokens", authorizations, resetTokens);
 		}

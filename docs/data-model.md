@@ -63,6 +63,17 @@ Requirements:
 - optional reuse detection
 - session/client association
 
+## signup_ips
+```text
+ip_hash CHAR(64) PK        -- SHA-256 of IPv4 address / IPv6 /64
+last_signup_at DATETIME(6)
+```
+One LOCAL signup per network per 24 h; rows purged after a day.
+
+## Auth Browser Sessions
+Spring Session JDBC tables `SPRING_SESSION` / `SPRING_SESSION_ATTRIBUTES` (V3, bundled schema).
+`PRINCIPAL_NAME` = users.id.
+
 ## Sessions
 For account-center display:
 ```text

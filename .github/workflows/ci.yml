@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+      - run: ./mvnw -B test # Testcontainers MySQL (Docker is available on ubuntu-latest)
+
+  # main only, and only once the host is prepared (repo variable DEPLOY_ENABLED=true, see docs/deployment.md).
+  # Same pipeline as Mirattic Sync: arm64 image (Apple Silicon host with OrbStack), streamed over SSH,
+  # no registry, switched by deploy/deploy.sh with health check + rollback.
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
+    needs: [test]
+    runs-on: ubuntu-latest
+    concurrency: deploy-auth
+    env:
+      HOST: giseok@ssh.mirattic.com
+      DIR: Documents/mirattic-auth
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+      - run: ./mvnw -B -DskipTests package
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/arm64
+          tags: mirattic-auth:${{ github.sha }}
+          outputs: type=docker,dest=${{ runner.temp }}/image.tar
+      - name: SSH key
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+      - name: Deploy
+        run: |
+          ssh "$HOST" "git -C $DIR fetch -q origin && git -C $DIR checkout -q --detach ${{ github.sha }}"
+          gzip -c "${{ runner.temp }}/image.tar" | ssh "$HOST" 'PATH=/opt/homebrew/bin:/usr/local/bin:$PATH docker load'
+          ssh "$HOST" "sh $DIR/deploy/deploy.sh ${{ github.sha }}"

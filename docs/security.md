@@ -33,6 +33,8 @@ Use `kid` for key rotation.
 - loopback redirects (`http://127.0.0.1:<port>/...`) match any port (Spring default, RFC 8252); dev-only since prod registers none (`clients.md`)
 
 ## Auth Web Session
+- Stored in MySQL (Spring Session JDBC, cookie `SESSION`): survives restarts / deploys.
+- Password change ends the user's other Auth sessions (keeps the current one); password reset ends all.
 - Secure (prod: `SERVER_SERVLET_SESSION_COOKIE_SECURE=true`)
 - HttpOnly
 - SameSite=Lax (top-level GET from products to `/oauth2/authorize` keeps SSO)
@@ -44,6 +46,9 @@ Implemented:
   `/password/reset`, `/password/reset/confirm`, `/account/password` → 429. Runs before Spring Security.
   Path matched decoded / without `;` params (as Spring resolves it). IPv6 keyed per /64. At most 100k
   tracked clients per minute (new ones get 429 while full); windows evicted by a 1-minute job.
+- signup: one LOCAL (email/password) account per client network per 24 h (IPv4 address / IPv6 /64;
+  only SHA-256 of the key stored, purged after a day). Replaces email verification for now (decision
+  2026-09-29: no email verification yet). Future social signups are exempt.
 - per account: at most one reset mail per minute (user row locked, so concurrent requests can't bypass).
 - `/oauth2/token` is not IP-limited (every user of a product refreshes through that product's server IP);
   it requires the client secret.
@@ -54,7 +59,7 @@ Implemented:
 Do not unnecessarily reveal whether an email/account exists.
 - login: one generic error for unknown email, wrong password, disabled account
 - password reset request: identical response; lookup + token + mail all run async, so response time does not depend on the account
-- signup: DOES reveal an existing email ("이미 가입된 이메일입니다"). Accepted trade-off; hiding it needs email verification first. Rate limit (Phase 7) bounds probing.
+- signup: DOES reveal an existing email ("이미 가입된 이메일입니다"). Accepted trade-off (no email verification, decided); per-IP rate limit bounds probing.
 
 ## Password Reset
 - 32 random bytes (base64url), only SHA-256 stored, 30 min expiry

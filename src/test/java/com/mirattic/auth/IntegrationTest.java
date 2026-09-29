@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import jakarta.servlet.http.Cookie;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
@@ -17,13 +18,15 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.util.Base64;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
+import com.mirattic.auth.account.AccountService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mock.web.MockHttpSession;
+
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -75,6 +78,17 @@ public abstract class IntegrationTest {
 	protected static final String REDIRECT = "http://127.0.0.1:8080/auth/callback";
 	protected static final String VERIFIER = "dBjftJeZ4CVP-mJ92K9qOVHGwVcRZa8uAmhPJ5lDSWk";
 
+	private static final AtomicInteger IPS = new AtomicInteger();
+
+	@Autowired
+	protected AccountService accounts;
+
+	/** Service signup from a fresh client IP (one signup per IP per day). */
+	protected String signup(String email, String password, String displayName) {
+		int n = IPS.incrementAndGet();
+		return accounts.signup(email, password, displayName, "10." + (n >> 16 & 255) + "." + (n >> 8 & 255) + "." + (n & 255));
+	}
+
 	protected static String email() {
 		return "u" + UUID.randomUUID().toString().substring(0, 8) + "@mirattic.com";
 	}
@@ -93,26 +107,29 @@ public abstract class IntegrationTest {
 		return new String(Base64.getUrlDecoder().decode(jwt.split("\\.")[1]), StandardCharsets.UTF_8);
 	}
 
-	protected MockHttpSession login(String email, String password) throws Exception {
+	/** Returns the Auth browser session cookie (Spring Session, stored in the DB). */
+	protected Cookie login(String email, String password) throws Exception {
 		MvcResult r = mvc.perform(formLogin("/login").user(email).password(password))
 				.andExpect(redirectedUrl("/"))
 				.andReturn();
-		return (MockHttpSession) r.getRequest().getSession(false);
+		Cookie session = r.getResponse().getCookie("SESSION");
+		assertThat(session).isNotNull();
+		return session;
 	}
 
 	protected void loginFails(String email, String password) throws Exception {
 		mvc.perform(formLogin("/login").user(email).password(password)).andExpect(redirectedUrl("/login?error"));
 	}
 
-	protected String authorize(MockHttpSession session) throws Exception {
+	protected String authorize(Cookie session) throws Exception {
 		return authorize(session, "openid profile");
 	}
 
 	/** /oauth2/authorize with state=st1, nonce=n1, PKCE S256; returns the code. */
-	protected String authorize(MockHttpSession session, String scope) throws Exception {
+	protected String authorize(Cookie session, String scope) throws Exception {
 		String location = mvc.perform(get(URI.create("/oauth2/authorize?response_type=code&client_id=" + CLIENT
 						+ "&redirect_uri=" + REDIRECT + "&scope=" + scope.replace(" ", "%20") + "&state=st1&nonce=n1"
-						+ "&code_challenge=" + s256(VERIFIER) + "&code_challenge_method=S256")).session(session))
+						+ "&code_challenge=" + s256(VERIFIER) + "&code_challenge_method=S256")).cookie(session))
 				.andExpect(status().is3xxRedirection())
 				.andReturn().getResponse().getRedirectedUrl();
 		assertThat(location).startsWith(REDIRECT + "?code=").contains("state=st1");
