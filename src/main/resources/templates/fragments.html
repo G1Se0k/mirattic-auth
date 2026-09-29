@@ -17,9 +17,13 @@
   <a class="brand" th:href="@{/account}"><img th:src="@{/mark.svg}" alt="">Mirattic <span>계정</span></a>
 </header>
 
-<footer th:fragment="bottom">
-  Mirattic Sync와 Mirattic Flow에서 같은 계정을 씁니다.
-</footer>
+<footer th:fragment="bottom">© Mirattic</footer>
+
+<!-- Logo lockup: mark + "Mirattic" wordmark (dot of the last i in the brand blue, as in the Flow logo). -->
+<h1 class="lockup" th:fragment="lockup">
+  <img th:src="@{/mark.svg}" alt="" width="128" height="128">
+  <span class="wordmark">Miratt<span class="i">ı<span class="dot"></span></span>c</span>
+</h1>
 
 <!-- "표시" toggle for password inputs: <div class="input"><input type="password" ...><button class="peek" ...> -->
 <script th:fragment="peek">

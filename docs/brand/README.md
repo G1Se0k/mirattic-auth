@@ -13,5 +13,10 @@ Sync = bare M, Flow = M + four-pane window + sparkle, **Mirattic = M + one round
 | `mirattic-mark-512.png` | app stores / social, transparent |
 | `mirattic-mark-180.png` | apple-touch-icon |
 | `mirattic-mark-32.png` | favicon fallback |
+| `mirattic-lockup.png` | mark + "Mirattic" wordmark, ink text, for light backgrounds (800×800, transparent) |
+| `mirattic-lockup-white.png` | same, white text, for dark backgrounds |
+
+Wordmark: Pretendard ExtraBold (800), letter-spacing −0.035em; the dot of the last i is `#3D7BFF`
+(as in the Flow logo). On the web it is live text (`fragments.html` `lockup`), not an image.
 
 Below ~24 px the window disappears; the M alone still reads.

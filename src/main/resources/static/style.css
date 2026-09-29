@@ -230,3 +230,39 @@ footer {
   color: var(--ink-faint);
   text-align: center;
 }
+
+h1.spaced { margin-bottom: 22px; }
+
+/* login: big logo lockup instead of a heading */
+main.landing { margin-top: 9vh; }
+.lockup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0 0 28px;
+}
+.lockup img { width: 128px; height: 128px; }
+.wordmark {
+  margin-top: 2px;
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+  color: var(--ink);
+}
+/* dotless ı + our own dot, so the dot can take the brand blue */
+.wordmark .i { position: relative; }
+.wordmark .dot {
+  position: absolute;
+  left: 50%;
+  top: 0.195em;
+  width: 0.165em;
+  height: 0.165em;
+  margin-left: -0.0825em;
+  border-radius: 50%;
+  background: #3D7BFF;
+}
+.lede.context { margin: 0 0 18px; text-align: center; }
+@media (max-width: 480px) {
+  main.landing { margin-top: 5vh; }
+}
