@@ -193,11 +193,6 @@ public class AccountService {
 				.forEach(sessions::deleteById);
 	}
 
-	/** The Mirattic UID behind a Kakao / Naver identity, if any. */
-	public java.util.Optional<String> userOfIdentity(String provider, String subject) {
-		return jdbc.queryForList("SELECT user_id FROM user_identities WHERE provider = ? AND subject = ?",
-				String.class, provider, subject).stream().findFirst();
-	}
 
 	/** BCrypt only uses the first 72 bytes, so longer passwords are refused rather than silently cut. */
 	private static void checkPassword(String password) {

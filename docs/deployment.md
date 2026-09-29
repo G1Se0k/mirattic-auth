@@ -133,6 +133,4 @@ docker compose up -d                                        # MySQL 8.4 on 3307 
 | `AUTH_MAIL_FROM` | `noreply@mirattic.com` |
 | `SYNC_CLIENT_SECRET_HASH` / `FLOW_CLIENT_SECRET_HASH` | none — required in prod; `{bcrypt}` hash, see `clients.md` |
 | `KAKAO_CLIENT_ID` / `KAKAO_CLIENT_SECRET` / `NAVER_CLIENT_ID` / `NAVER_CLIENT_SECRET` | local: dummies (buttons fail). Required in prod (`deploy.sh` refuses without them); copied from the old Flow backend's apps |
-| `KAKAO_ADMIN_KEY` | Kakao primary Admin key, authenticates the unlink webhook `/social/kakao/unlink`. Required in prod |
-| `AUTH_KAKAO_UNLINK_JOURNAL` | compose: `/keys/kakao-unlinks.log` (persistent volume); local `./.local/kakao-unlinks.log` |
 | `SIGNUP_IP_KEY` | HMAC key for signup-per-network hashes; `deploy.sh` generates it once on the host. Local/tests: random |

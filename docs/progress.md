@@ -176,8 +176,7 @@ Not changed: Sync / Flow code (user request: do not touch yet).
 ## Next Task
 1. Flow (pre-existing, found by Codex during Phase 4, not caused by it): removing a workspace member keeps their
    project access; removing a project member keeps their open chat subscription. Fix in Flow.
-2. Kakao / Naver consoles: rename the apps to "Mirattic", privacy URL https://auth.mirattic.com/privacy, Kakao unlink
-   callback https://auth.mirattic.com/social/kakao/unlink; then Naver review (Kakao needs none for nickname only).
-   (Done in Auth 2026-09-29: /privacy page, Kakao unlink webhook — Codex Sol PASS after 8 passes.)
+2. Kakao / Naver consoles: rename the apps to "Mirattic", privacy URL https://auth.mirattic.com/privacy; then Naver
+   review (Kakao needs none for nickname only). Kakao unlink webhook: decided not to use (2026-09-29, user).
 3. Phase 5 — Account center (Mirattic account deletion, linking a second sign-in method).
 4. Optional: DMARC `p=quarantine`; rotate the Resend API key (shared in chat).

@@ -65,8 +65,6 @@ public abstract class IntegrationTest {
 			registry.add(prefix + ".token-uri", () -> SocialStub.url("/token"));
 			registry.add(prefix + ".user-info-uri", () -> SocialStub.url("/me"));
 		}
-		registry.add("auth.kakao.admin-key", () -> KAKAO_ADMIN_KEY);
-		registry.add("auth.kakao.unlink-journal", () -> dir.resolve("kakao-unlinks.log").toString());
 		// Every test logs in from 127.0.0.1; the limiter itself is covered by AuthRateLimitFilterTest.
 		registry.add("auth.rate-limit-per-minute", () -> "100000");
 	}
@@ -79,8 +77,6 @@ public abstract class IntegrationTest {
 
 	@Autowired
 	protected JdbcTemplate jdbc;
-
-	protected static final String KAKAO_ADMIN_KEY = "test-kakao-admin-key";
 
 	// Dev client from application-local.yml.
 	protected static final String CLIENT = "mirattic-sync";

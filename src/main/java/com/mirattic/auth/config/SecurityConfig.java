@@ -78,14 +78,11 @@ class SecurityConfig {
 			ClientRegistrationRepository registrations) throws Exception {
 		return http
 				.authorizeHttpRequests(a -> a
-						// Kakao's unlink webhook: server to server, authenticated by the Kakao Admin key header.
-						.requestMatchers("/social/kakao/unlink").permitAll()
 						.requestMatchers("/actuator/health", "/privacy", "/login", "/signup", "/password/reset",
 								"/password/reset/confirm", "/error").permitAll()
 						.requestMatchers("/style.css", "/fonts/**", "/mark.svg", "/favicon-32.png",
 								"/apple-touch-icon.png").permitAll()
 						.anyRequest().authenticated())
-				.csrf(c -> c.ignoringRequestMatchers("/social/kakao/unlink"))
 				.formLogin(f -> f.loginPage("/login"))
 				// Kakao / Naver: /oauth2/authorization/{kakao|naver} → provider → /login/oauth2/code/{id}.
 				.oauth2Login(o -> o.loginPage("/login").failureUrl("/login?social_error")
