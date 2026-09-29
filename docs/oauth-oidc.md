@@ -61,3 +61,10 @@ Desktop app is not served.
 ## SSO
 SSO comes from the Auth browser session.
 Product services do not share their own cookies.
+
+## Re-authentication (`prompt=login`)
+`/oauth2/authorize?...&prompt=login` with a password sign-in older than 60 s ends that Auth session, so the
+login page asks for the password again and then replays the request (`FreshLoginFilter`). A fresh sign-in
+passes straight through. The ID token's `auth_time` is the time the password was typed (Spring Security's
+password factor), so clients check freshness themselves — they must not rely on the redirect alone.
+Used by: Sync account deletion (`auth_time` within 5 min, same `sub`; Sync `docs/protocol/rest.md`).

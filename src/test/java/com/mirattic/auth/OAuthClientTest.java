@@ -8,6 +8,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
+import java.net.URI;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -22,6 +25,7 @@ import org.springframework.security.oauth2.server.authorization.OAuth2Authorizat
 import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.web.util.UriComponentsBuilder;
 
 /** Confidential clients (client_secret_basic + PKCE), refresh rotation, revocation. docs/clients.md */
 class OAuthClientTest extends IntegrationTest {
@@ -48,6 +52,21 @@ class OAuthClientTest extends IntegrationTest {
 				.andExpect(status().isBadRequest());
 		token(SECRET, "grant_type", "authorization_code", "code", code, "redirect_uri", REDIRECT,
 				"code_verifier", "x".repeat(43)).andExpect(status().isBadRequest());
+	}
+
+	@Test
+	void promptLoginRightAfterSigningInIssuesACodeWithAuthTime() throws Exception {
+		// A sign-in within FreshLoginFilter.FRESH passes (older ones are sent to /login: FreshLoginFilterTest).
+		String location = mvc.perform(get(URI.create("/oauth2/authorize?response_type=code&client_id=" + CLIENT
+						+ "&redirect_uri=" + REDIRECT + "&scope=openid&state=st1&prompt=login"
+						+ "&code_challenge=" + s256(VERIFIER) + "&code_challenge_method=S256")).cookie(newUser().browser()))
+				.andReturn().getResponse().getRedirectedUrl();
+		assertThat(location).startsWith(REDIRECT + "?code=");
+		String code = URLDecoder.decode(UriComponentsBuilder.fromUriString(location).build().getQueryParams()
+				.getFirst("code"), StandardCharsets.UTF_8);
+		String idToken = JsonPath.read(exchange(code), "$.id_token");
+		long authTime = ((Number) JsonPath.read(claims(idToken), "$.auth_time")).longValue();
+		assertThat(authTime).isCloseTo(System.currentTimeMillis() / 1000, org.assertj.core.data.Offset.offset(30L));
 	}
 
 	@Test

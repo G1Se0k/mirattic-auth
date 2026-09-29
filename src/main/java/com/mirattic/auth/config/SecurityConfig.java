@@ -2,6 +2,7 @@ package com.mirattic.auth.config;
 
 import static org.springframework.security.config.Customizer.withDefaults;
 
+import java.time.Clock;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -29,6 +30,7 @@ import org.springframework.security.oauth2.server.authorization.client.Registere
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.context.SecurityContextHolderFilter;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
@@ -54,6 +56,7 @@ class SecurityConfig {
 									ctx.getAccessToken().getScopes(), OAuth2ErrorCodes.INVALID_TOKEN)))));
 				})
 				.authorizeHttpRequests(a -> a.anyRequest().authenticated())
+				.addFilterAfter(new FreshLoginFilter(Clock.systemUTC()), SecurityContextHolderFilter.class)
 				.oauth2ResourceServer(r -> r.jwt(withDefaults()))
 				.exceptionHandling(e -> e.defaultAuthenticationEntryPointFor(
 						new LoginUrlAuthenticationEntryPoint("/login"), html))

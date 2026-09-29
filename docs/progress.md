@@ -1,6 +1,6 @@
 # Current Phase
 Auth is live at https://auth.mirattic.com (2026-09-29).
-Phase 3 — Mirattic Sync Migration (Sync work list 1–5 deployed 2026-09-29, Sync commit `54367db`; import skipped, no real accounts)
+Phase 3 — Mirattic Sync Migration (done 2026-09-29: Sync work list 1–5 and 7, legacy Sync auth removed; import skipped, no real accounts)
 
 ## Goal
 Create the central Mirattic Auth project and finalize the first deployable authentication architecture.
@@ -162,10 +162,10 @@ Not changed: Sync / Flow code (user request: do not touch yet).
 - Single signing key; rotation (previous public key in JWKS) is Phase 7.
 - Flow uses KAKAO / NAVER, not in Auth's LOCAL/GOOGLE/APPLE plan — needs decision.
 - Flow numeric IDs need a UUID mapping (Flow keeps `users.id`, adds Mirattic UID column) — Flow change, deferred.
-- Sync account deletion confirms with the Sync LOCAL password; Auth-only users can't delete (400) → Auth re-auth (work list 7).
+- Sync's one pre-migration test account (production, 2026-09-28) lost its legacy login; signing in with a Mirattic account of any email creates a separate Sync profile.
+- `prompt=login` re-auth window is 60 s (Auth) / 5 min (Sync `auth_time` check); a user who signed in within 60 s is not asked again.
 
 ## Next Task
-1. Sync account deletion by Auth re-authentication (work list 7 prerequisite), then legacy Sync auth removal.
-2. Phase 4 — Flow migration decisions (KAKAO/NAVER, numeric IDs).
-3. Optional: DMARC `p=quarantine` after a few days of inbox delivery; rotate the Resend API key if desired
+1. Phase 4 — Flow migration decisions (KAKAO/NAVER, numeric IDs).
+2. Optional: DMARC `p=quarantine` after a few days of inbox delivery; rotate the Resend API key if desired
    (it was shared in chat).

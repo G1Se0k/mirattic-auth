@@ -44,7 +44,7 @@ logout  extension ─▶ Sync /api/auth/logout ─▶ Auth /oauth2/revoke (+ cli
 - verify password-hash compatibility (Sync uses DelegatingPasswordEncoder → compatible)
 - keep legacy login temporarily
 
-### B. Dual Acceptance
+### B. Dual Acceptance (done, then ended by D on 2026-09-29)
 Sync temporarily accepts:
 - legacy Sync token (HS256, iss `mirattic`)
 - Mirattic Auth token (RS256 via JWKS, iss = Auth URL, aud `mirattic-sync`)
@@ -76,8 +76,10 @@ Keep product profile/friend/room/chat data.
    legacy Sync sign-up returns 410 in production
 6. ➖ import skipped (2026-09-29, user decision): production Sync had no real accounts (one test account,
    which keeps its legacy login until step 7).
-7. ⏳ remove legacy auth after stabilization; replace the password-confirmed Sync account deletion with an
-   Auth re-authentication (Auth-only users have no Sync password)
+7. ✅ legacy auth removed (2026-09-29, user request): Sync sign-up/login/refresh tokens/passwords/JWT secret
+   gone, V15 drops `refresh_tokens` and `user_identities`; API accepts Auth access tokens only; `/api/me` email
+   read live from Auth UserInfo. Sync account deletion re-authenticates at Auth (`prompt=login`, `auth_time`
+   ≤ 5 min, same `sub`); deletes the Sync profile only, the Mirattic account stays.
 
 ## Flow
 If Flow has separate accounts:
