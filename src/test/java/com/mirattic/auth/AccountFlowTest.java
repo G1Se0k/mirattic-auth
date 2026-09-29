@@ -316,6 +316,7 @@ class AccountFlowTest extends IntegrationTest {
 
 		assertThat(jdbc.queryForObject("SELECT status FROM users WHERE id = ?", String.class, uid)).isEqualTo("DELETED");
 		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM user_identities WHERE user_id = ?", Integer.class, uid)).isZero();
+		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM security_events WHERE user_id = ?", Integer.class, uid)).isZero();
 		mvc.perform(get("/account").cookie(session)).andExpect(redirectedUrl("/login"));
 		mvc.perform(get("/account").cookie(other)).andExpect(redirectedUrl("/login"));
 		assertThat(refresh(refresh)).contains("invalid_grant");
@@ -352,6 +353,39 @@ class AccountFlowTest extends IntegrationTest {
 		mvc.perform(post("/account/delete").with(csrf()).cookie(session))
 				.andExpect(content().string(containsString("탈퇴 확인에 체크해주세요")));
 		assertThat(SocialStub.DELETIONS).isEmpty();
+	}
+
+	@Test
+	void theSecurityLogShowsSignInsFailuresPasswordChangesAndSignOutsToTheOwnerOnly() throws Exception {
+		String email = email();
+		String uid = signup(email, "password-1", "Log");
+		Cookie session = login(email, "password-1");
+		Cookie phone = mvc.perform(post("/login").with(csrf()).param("username", email).param("password", "password-1")
+						.header("User-Agent", "Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 Chrome/140.0 Mobile Safari/537.36"))
+				.andReturn().getResponse().getCookie("SESSION");
+		mvc.perform(post("/login").with(csrf()).param("username", " " + email.toUpperCase() + " ")
+				.param("password", "wrong-password").header("User-Agent", "Mozilla/5.0 (Windows NT 10.0) Firefox/140.0"))
+				.andExpect(redirectedUrl("/login?error"));
+		loginFails("nobody-" + email, "wrong-password"); // unknown email: nothing recorded, no error
+		mvc.perform(post("/account/password").with(csrf()).cookie(session)
+				.param("currentPassword", "password-1").param("password", "password-2"));
+		// The password change already ended the phone's session; a sign-out of a live device is logged too.
+		Cookie tablet = login(email, "password-2");
+		String page = mvc.perform(get("/account").cookie(tablet)).andReturn().getResponse()
+				.getContentAsString(StandardCharsets.UTF_8);
+		Matcher other = Pattern.compile("name=\"id\" value=\"([0-9a-f]{64})\"").matcher(page);
+		assertThat(other.find()).isTrue();
+		mvc.perform(post("/account/devices/end").with(csrf()).cookie(tablet).param("id", other.group(1)));
+
+		assertThat(jdbc.queryForList("SELECT CONCAT(type, ':', COALESCE(detail, '')) FROM security_events "
+				+ "WHERE user_id = ? ORDER BY id", String.class, uid)).containsExactly(
+				"SIGN_IN:이메일 · 알 수 없는 브라우저", "SIGN_IN:이메일 · Chrome · Android",
+				"SIGN_IN_FAILED:Firefox · Windows", "PASSWORD_CHANGED:", "SIGN_IN:이메일 · 알 수 없는 브라우저",
+				"DEVICE_SIGNED_OUT:알 수 없는 브라우저");
+		mvc.perform(get("/account").cookie(tablet)).andExpect(content().string(containsString("최근 보안 활동")))
+				.andExpect(content().string(containsString("잘못된 비밀번호로 로그인 시도")))
+				.andExpect(content().string(containsString("Firefox · Windows")));
+		assertThat(phone).isNotNull();
 	}
 
 	/** Spring Session's cookie is the base64 of the session id. */

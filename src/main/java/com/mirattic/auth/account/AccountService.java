@@ -50,10 +50,12 @@ public class AccountService {
 	private final PasswordEncoder passwordEncoder;
 	private final PasswordResetMailer mailer;
 	private final FindByIndexNameSessionRepository<? extends Session> sessions;
+	private final SecurityEvents events;
 
 	AccountService(JdbcTemplate jdbc, PasswordEncoder passwordEncoder, PasswordResetMailer mailer,
-			FindByIndexNameSessionRepository<? extends Session> sessions,
+			FindByIndexNameSessionRepository<? extends Session> sessions, SecurityEvents events,
 			@Value("${auth.signup-ip-key:}") String signupIpKey) {
+		this.events = events;
 		if (signupIpKey.isBlank()) {
 			this.ipHashKey = new byte[32];
 			RANDOM.nextBytes(ipHashKey);
@@ -144,6 +146,7 @@ public class AccountService {
 			throw new AccountException("링크가 만료되었거나 이미 사용되었습니다. 다시 요청하세요.");
 		}
 		setPassword(ids.getFirst(), newPassword, null);
+		events.record(ids.getFirst(), SecurityEvents.Type.PASSWORD_RESET, null);
 	}
 
 	/** Keeps only `currentSessionId` (the browser that changed it) signed in to Auth. */
@@ -157,6 +160,7 @@ public class AccountService {
 		}
 		checkPassword(newPassword);
 		setPassword(userId, newPassword, currentSessionId);
+		events.record(userId, SecurityEvents.Type.PASSWORD_CHANGED, null);
 	}
 
 	public void changeDisplayName(String userId, String displayName) {
@@ -220,7 +224,9 @@ public class AccountService {
 		if (count == null || count < 2) {
 			throw new AccountException("마지막 로그인 방법은 해제할 수 없습니다.");
 		}
-		jdbc.update("DELETE FROM user_identities WHERE user_id = ? AND provider = ?", userId, provider);
+		if (jdbc.update("DELETE FROM user_identities WHERE user_id = ? AND provider = ?", userId, provider) > 0) {
+			events.record(userId, SecurityEvents.Type.UNLINKED, "KAKAO".equals(provider) ? "카카오" : "네이버");
+		}
 	}
 
 	/** BCrypt only uses the first 72 bytes, so longer passwords are refused rather than silently cut. */

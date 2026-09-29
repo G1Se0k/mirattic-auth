@@ -59,6 +59,10 @@ public abstract class IntegrationTest {
 		registry.add("spring.datasource.password", MYSQL::getPassword);
 		Path dir = Files.createTempDirectory("mirattic-auth-key");
 		registry.add("auth.signing-key.path", () -> dir.resolve("key.jwk.json").toString());
+		// Every test runs mid-rotation: a previous key is published too, so tokens must pick the current one.
+		Files.writeString(dir.resolve("previous.jwk.json"),
+				new com.nimbusds.jose.jwk.gen.RSAKeyGenerator(2048).keyIDFromThumbprint(true).generate().toJSONString());
+		registry.add("auth.signing-key.previous-path", () -> dir.resolve("previous.jwk.json").toString());
 		for (String provider : new String[] {"kakao", "naver"}) {
 			String prefix = "spring.security.oauth2.client.provider." + provider;
 			registry.add(prefix + ".authorization-uri", () -> "https://" + provider + ".test/authorize");

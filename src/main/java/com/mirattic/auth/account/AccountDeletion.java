@@ -1,7 +1,5 @@
 package com.mirattic.auth.account;
 
-import com.nimbusds.jose.jwk.source.JWKSource;
-import com.nimbusds.jose.proc.SecurityContext;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -18,7 +16,6 @@ import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
-import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.client.RestClient;
@@ -52,12 +49,12 @@ public class AccountDeletion {
 
 	AccountDeletion(@Value("${spring.security.oauth2.authorizationserver.issuer}") String issuer,
 			@Value("${auth.account-deletion.flow-url}") String flowUrl,
-			@Value("${auth.account-deletion.sync-url}") String syncUrl, JWKSource<SecurityContext> keys,
+			@Value("${auth.account-deletion.sync-url}") String syncUrl, JwtEncoder encoder,
 			JdbcTemplate jdbc, TransactionTemplate tx, AccountService accounts) {
 		this.products = List.of(new Product("mirattic-flow", "Mirattic Flow", flowUrl),
 				new Product("mirattic-sync", "Mirattic Sync", syncUrl));
 		this.issuer = issuer;
-		this.encoder = new NimbusJwtEncoder(keys);
+		this.encoder = encoder;
 		SimpleClientHttpRequestFactory timeouts = new SimpleClientHttpRequestFactory();
 		timeouts.setConnectTimeout(Duration.ofSeconds(5));
 		timeouts.setReadTimeout(Duration.ofSeconds(20));
@@ -82,6 +79,7 @@ public class AccountDeletion {
 			jdbc.update("DELETE FROM user_identities WHERE user_id = ?", userId);
 			jdbc.update("DELETE FROM password_reset_tokens WHERE user_id = ?", userId);
 			jdbc.update("DELETE FROM oauth2_authorization_consent WHERE principal_name = ?", userId);
+			jdbc.update("DELETE FROM security_events WHERE user_id = ?", userId);
 		});
 		accounts.endSessions(userId, currentSessionId);
 	}

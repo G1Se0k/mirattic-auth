@@ -5,6 +5,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.UnaryOperator;
 import org.slf4j.Logger;
@@ -58,11 +59,15 @@ class HashedTokenAuthorizationService implements OAuth2AuthorizationService {
 	private final OAuth2AuthorizationService delegate;
 	private final JdbcOperations jdbc;
 	private final TransactionTemplate tx;
+	/** Told (user, registered client id) after a reused refresh token revoked a login. */
+	private final BiConsumer<String, String> onReuse;
 
-	HashedTokenAuthorizationService(OAuth2AuthorizationService delegate, JdbcOperations jdbc, TransactionTemplate tx) {
+	HashedTokenAuthorizationService(OAuth2AuthorizationService delegate, JdbcOperations jdbc, TransactionTemplate tx,
+			BiConsumer<String, String> onReuse) {
 		this.delegate = delegate;
 		this.jdbc = jdbc;
 		this.tx = tx;
+		this.onReuse = onReuse;
 	}
 
 	@Override
@@ -136,6 +141,7 @@ class HashedTokenAuthorizationService implements OAuth2AuthorizationService {
 				log.warn("Rotated refresh token presented again; revoking authorization {} (user {}, client {})",
 						id, family.getPrincipalName(), family.getRegisteredClientId());
 				delegate.remove(family);
+				onReuse.accept(family.getPrincipalName(), family.getRegisteredClientId());
 			}
 		}
 	}

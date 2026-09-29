@@ -212,6 +212,9 @@ class SocialLoginTest extends IntegrationTest {
 		mvc.perform(post("/account/unlink/kakao").with(csrf()).cookie(in.session()))
 				.andExpect(redirectedUrl("/account?unlinked#methods"));
 		assertThat(owner("KAKAO", kakaoId)).isNull();
+		assertThat(jdbc.queryForList("SELECT CONCAT(type, ':', detail) FROM security_events WHERE user_id = ? "
+				+ "AND type IN ('LINKED', 'UNLINKED') ORDER BY id", String.class, uid))
+				.containsExactly("LINKED:카카오", "UNLINKED:카카오");
 	}
 
 	@Test

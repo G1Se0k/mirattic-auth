@@ -1,6 +1,13 @@
 package com.mirattic.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
+
+import com.jayway.jsonpath.JsonPath;
+import com.nimbusds.jose.jwk.RSAKey;
+import com.nimbusds.jwt.SignedJWT;
+import org.springframework.beans.factory.annotation.Autowired;
+
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
@@ -35,14 +42,26 @@ class AuthBootstrapTest extends IntegrationTest {
 	}
 
 	@Test
-	void jwksPublishesOnlyThePublicRsaKey() throws Exception {
+	void jwksPublishesOnlyPublicRsaKeysTheCurrentFirst() throws Exception {
+		// Tests run mid-rotation (IntegrationTest): current + previous.
 		mvc.perform(get("/oauth2/jwks"))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.keys", hasSize(1)))
+				.andExpect(jsonPath("$.keys", hasSize(2)))
 				.andExpect(jsonPath("$.keys[0].kty").value("RSA"))
-				.andExpect(jsonPath("$.keys[0].kid").isString())
-				.andExpect(jsonPath("$.keys[0]", not(hasKey("d"))));
+				.andExpect(jsonPath("$.keys[0].kid").value(currentKey.getKeyID()))
+				.andExpect(jsonPath("$.keys[0]", not(hasKey("d"))))
+				.andExpect(jsonPath("$.keys[1]", not(hasKey("d"))));
+		// Tokens are signed with the current key.
+		String email = email();
+		signup(email, "password-1", "K");
+		String body = exchange(authorize(login(email, "password-1")));
+		for (String token : new String[] {JsonPath.read(body, "$.id_token"), JsonPath.read(body, "$.access_token")}) {
+			assertThat(SignedJWT.parse(token).getHeader().getKeyID()).isEqualTo(currentKey.getKeyID());
+		}
 	}
+
+	@Autowired
+	RSAKey currentKey;
 
 	@Test
 	void healthIsPublicAndAuthorizeSendsBrowsersToLogin() throws Exception {

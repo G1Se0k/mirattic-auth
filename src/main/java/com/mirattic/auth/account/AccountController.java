@@ -29,6 +29,7 @@ class AccountController {
 	private final RegisteredClientRepository clients;
 	private final Devices devices;
 	private final AccountDeletion deletion;
+	private final SecurityEvents events;
 	private final SecurityContextLogoutHandler logout = new SecurityContextLogoutHandler();
 	private static final Set<String> PROVIDERS = Set.of("kakao", "naver");
 	private static final Duration FRESH = Duration.ofMinutes(10);
@@ -36,7 +37,8 @@ class AccountController {
 	private final RequestCache requestCache = new HttpSessionRequestCache();
 
 	AccountController(AccountService accounts, RegisteredClientRepository clients, Devices devices,
-			AccountDeletion deletion) {
+			AccountDeletion deletion, SecurityEvents events) {
+		this.events = events;
 		this.accounts = accounts;
 		this.clients = clients;
 		this.devices = devices;
@@ -125,6 +127,7 @@ class AccountController {
 	String account(Authentication auth, HttpSession session, Model model) {
 		model.addAttribute("account", accounts.find(auth.getName()));
 		model.addAttribute("devices", devices.list(auth.getName(), session.getId()));
+		model.addAttribute("events", events.recent(auth.getName()));
 		return "account";
 	}
 

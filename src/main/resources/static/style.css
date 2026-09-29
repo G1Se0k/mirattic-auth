@@ -231,6 +231,7 @@ h2 { margin: 0 0 12px; font-size: 15px; font-weight: 650; }
 .devices p { margin: 2px 0 0; color: var(--ink-faint); font-size: 13px; }
 .devices form { flex-shrink: 0; }
 .hint { margin: 0 0 12px; color: var(--ink-soft); font-size: 13px; }
+.devices + .hint { margin-top: 10px; }
 .check { display: flex; align-items: center; gap: 8px; font-size: 14px; }
 .check input { width: 16px; height: 16px; }
 .danger {

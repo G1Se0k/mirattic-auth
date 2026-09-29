@@ -38,6 +38,8 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       AUTH_ISSUER: https://auth.mirattic.com
       AUTH_SIGNING_KEY_PATH: /keys/signing-key.jwk.json
+      # Present only during a rotation (deploy/rotate-signing-key.sh).
+      AUTH_SIGNING_KEY_PREVIOUS_PATH: /keys/signing-key.previous.jwk.json
       # Generated once into the persistent volume, then reused. Back the volume up (docs/deployment.md).
       AUTH_SIGNING_KEY_GENERATE: "true"
       SYNC_CLIENT_SECRET_HASH: ${SYNC_CLIENT_SECRET_HASH}

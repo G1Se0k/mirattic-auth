@@ -13,6 +13,7 @@ import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.List;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
@@ -46,18 +47,27 @@ public class Devices {
 	private final FindByIndexNameSessionRepository<? extends Session> sessions;
 	private final JdbcTemplate jdbc;
 	private final RegisteredClientRepository clients;
+	private final SecurityEvents events;
 
 	Devices(FindByIndexNameSessionRepository<? extends Session> sessions, JdbcTemplate jdbc,
-			RegisteredClientRepository clients) {
+			RegisteredClientRepository clients, SecurityEvents events) {
 		this.sessions = sessions;
 		this.jdbc = jdbc;
 		this.clients = clients;
+		this.events = events;
 	}
 
-	/** Records the browser on the (already fixation-protected) session, then does what `next` does. */
-	public static AuthenticationSuccessHandler recording(AuthenticationSuccessHandler next) {
+	/**
+	 * Records the browser on the (already fixation-protected) session and the sign-in in the security log, then
+	 * does what `next` does.
+	 */
+	public AuthenticationSuccessHandler recording(AuthenticationSuccessHandler next) {
 		return (request, response, auth) -> {
-			request.getSession().setAttribute(SIGN_IN, new SignIn(label(request), Instant.now()));
+			String label = label(request);
+			request.getSession().setAttribute(SIGN_IN, new SignIn(label, Instant.now()));
+			String method = auth instanceof OAuth2AuthenticationToken social
+					? ("kakao".equals(social.getAuthorizedClientRegistrationId()) ? "카카오" : "네이버") : "이메일";
+			events.record(auth.getName(), SecurityEvents.Type.SIGN_IN, method + " · " + label);
 			next.onAuthenticationSuccess(request, response, auth);
 		};
 	}
@@ -86,12 +96,23 @@ public class Devices {
 
 	/** Signs one browser or app out. Only the user's own; this browser is ended by logging out instead. */
 	public void end(String userId, String deviceId, String currentSessionId) {
-		if (jdbc.update("DELETE FROM oauth2_authorization WHERE id = ? AND principal_name = ?", deviceId, userId) > 0) {
+		List<String> app = jdbc.queryForList("SELECT registered_client_id FROM oauth2_authorization "
+				+ "WHERE id = ? AND principal_name = ?", String.class, deviceId, userId);
+		if (!app.isEmpty()) {
+			if (jdbc.update("DELETE FROM oauth2_authorization WHERE id = ? AND principal_name = ?", deviceId, userId) > 0) {
+				RegisteredClient client = clients.findById(app.getFirst());
+				events.record(userId, SecurityEvents.Type.DEVICE_SIGNED_OUT,
+						client == null ? null : client.getClientName());
+			}
 			return;
 		}
-		sessions.findByPrincipalName(userId).keySet().stream()
-				.filter(id -> hash(id).equals(deviceId) && !id.equals(currentSessionId))
-				.forEach(sessions::deleteById);
+		sessions.findByPrincipalName(userId).forEach((id, s) -> {
+			if (hash(id).equals(deviceId) && !id.equals(currentSessionId)) {
+				SignIn in = s.getAttribute(SIGN_IN);
+				sessions.deleteById(id);
+				events.record(userId, SecurityEvents.Type.DEVICE_SIGNED_OUT, in == null ? null : in.label());
+			}
+		});
 	}
 
 	private static ZonedDateTime seoul(Instant at) {

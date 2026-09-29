@@ -52,10 +52,12 @@ public class SocialLogin implements OAuth2UserService<OAuth2UserRequest, OAuth2U
 	private final OAuth2UserService<OAuth2UserRequest, OAuth2User> fetch = new DefaultOAuth2UserService();
 	private final JdbcOperations jdbc;
 	private final TransactionTemplate tx;
+	private final SecurityEvents events;
 
-	SocialLogin(JdbcOperations jdbc, TransactionTemplate tx) {
+	SocialLogin(JdbcOperations jdbc, TransactionTemplate tx, SecurityEvents events) {
 		this.jdbc = jdbc;
 		this.tx = tx;
+		this.events = events;
 	}
 
 	@Override
@@ -137,6 +139,7 @@ public class SocialLogin implements OAuth2UserService<OAuth2UserRequest, OAuth2U
 		jdbc.update("INSERT INTO user_identities "
 				+ "(id, user_id, provider, subject, email, password_hash, created_at, updated_at) "
 				+ "VALUES (UUID(), ?, ?, ?, ?, NULL, NOW(6), NOW(6))", uid, p.provider(), p.subject(), p.email());
+		events.record(uid, SecurityEvents.Type.LINKED, "KAKAO".equals(p.provider()) ? "카카오" : "네이버");
 	}
 
 	/**

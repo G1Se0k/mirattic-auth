@@ -88,6 +88,13 @@ Linking (Phase 5, account page, Kakao / Naver only):
 - Unlinking (same 10-minute rule) needs another sign-in method left; the users row is locked so two concurrent
   unlinks can't remove the last one. Email + password can't be added to a social-only account yet.
 
+## Security Events (Phase 7, `SecurityEvents`, V5 `security_events`)
+Shown to the account's owner ("최근 보안 활동", last 10 on `/account`): sign-in (method + browser kind), password
+sign-in failure of an existing active email account, password change / reset, Kakao / Naver linked / unlinked,
+device signed out, refresh-token reuse that revoked a login (product name). No IP, no tokens. Kept 90 days
+(`ExpiredDataCleanup`), deleted with the account. Unknown-email failures are not recorded. A flood of wrong
+passwords for one account is bounded by the per-IP login limit only.
+
 ## Never Log
 - passwords
 - raw refresh tokens

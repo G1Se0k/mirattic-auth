@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Set;
 import com.mirattic.auth.account.AccountService;
 import com.mirattic.auth.account.Devices;
+import com.mirattic.auth.account.SecurityEvents;
 import com.mirattic.auth.account.SocialLogin;
 import com.mirattic.auth.account.SocialReauth;
 import org.springframework.boot.security.oauth2.server.authorization.autoconfigure.servlet.OAuth2AuthorizationServerProperties;
@@ -33,6 +34,7 @@ import org.springframework.security.oauth2.server.authorization.OAuth2Authorizat
 import org.springframework.security.oauth2.core.OAuth2ErrorCodes;
 import org.springframework.security.oauth2.core.oidc.OidcUserInfo;
 import org.springframework.security.oauth2.core.oidc.endpoint.OidcParameterNames;
+import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
@@ -43,6 +45,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler;
+import org.springframework.security.web.authentication.SimpleUrlAuthenticationFailureHandler;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
 
@@ -76,7 +79,7 @@ class SecurityConfig {
 	@Bean
 	@Order(2)
 	SecurityFilterChain defaultChain(HttpSecurity http, SocialLogin socialLogin,
-			ClientRegistrationRepository registrations) throws Exception {
+			ClientRegistrationRepository registrations, Devices devices, SecurityEvents events) throws Exception {
 		return http
 				.authorizeHttpRequests(a -> a
 						.requestMatchers("/actuator/health", "/privacy", "/login", "/signup", "/password/reset",
@@ -85,10 +88,11 @@ class SecurityConfig {
 								"/apple-touch-icon.png").permitAll()
 						.anyRequest().authenticated())
 				.formLogin(f -> f.loginPage("/login")
-						.successHandler(Devices.recording(new SavedRequestAwareAuthenticationSuccessHandler())))
+						.successHandler(devices.recording(new SavedRequestAwareAuthenticationSuccessHandler()))
+						.failureHandler(events.failedPasswords(new SimpleUrlAuthenticationFailureHandler("/login?error"))))
 				// Kakao / Naver: /oauth2/authorization/{kakao|naver} → provider → /login/oauth2/code/{id}.
 				.oauth2Login(o -> o.loginPage("/login").failureHandler(SocialLogin.failureHandler())
-						.successHandler(Devices.recording(new SavedRequestAwareAuthenticationSuccessHandler()))
+						.successHandler(devices.recording(new SavedRequestAwareAuthenticationSuccessHandler()))
 						.authorizationEndpoint(a -> a.authorizationRequestResolver(new SocialReauth(registrations)))
 						.userInfoEndpoint(u -> u.userService(socialLogin)))
 				// Reset links carry a token in the URL; never leak it through Referer.
@@ -152,14 +156,18 @@ class SecurityConfig {
 	/** Refresh tokens are stored hashed, which only works with rotation (see HashedTokenAuthorizationService). */
 	@Bean
 	OAuth2AuthorizationService authorizationService(JdbcOperations jdbc, RegisteredClientRepository clients,
-			OAuth2AuthorizationServerProperties properties, PlatformTransactionManager transactionManager) {
+			OAuth2AuthorizationServerProperties properties, PlatformTransactionManager transactionManager,
+			SecurityEvents events) {
 		properties.getClient().forEach((name, client) -> {
 			if (client.getToken().isReuseRefreshTokens()) {
 				throw new IllegalStateException("Client '" + name + "' must set token.reuse-refresh-tokens: false");
 			}
 		});
 		return new HashedTokenAuthorizationService(new JdbcOAuth2AuthorizationService(jdbc, clients), jdbc,
-				new TransactionTemplate(transactionManager));
+				new TransactionTemplate(transactionManager), (userId, clientId) -> {
+					RegisteredClient client = clients.findById(clientId);
+					events.record(userId, SecurityEvents.Type.TOKEN_REUSE, client == null ? null : client.getClientName());
+				});
 	}
 
 	@Bean

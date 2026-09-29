@@ -104,6 +104,8 @@ auth:
     sync-url: ${SYNC_ACCOUNT_DELETION_URL:https://sync.mirattic.com/api/internal/account-deletion}
   signing-key:
     path: ${AUTH_SIGNING_KEY_PATH:./.local/signing-key.jwk.json}
+    # During a rotation: the key that was current before, published (public part) but no longer used to sign.
+    previous-path: ${AUTH_SIGNING_KEY_PREVIOUS_PATH:}
     # true only with a persistent key location (local profile, prod volume); see docs/deployment.md
     generate-if-missing: ${AUTH_SIGNING_KEY_GENERATE:false}
 

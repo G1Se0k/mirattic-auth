@@ -162,6 +162,8 @@ class OAuthClientTest extends IntegrationTest {
 		jdbc.update("UPDATE rotated_refresh_tokens SET rotated_at = NOW(6) - INTERVAL 1 MINUTE");
 		assertThat(refresh(r1)).as("leaked old token").contains("invalid_grant");
 		assertThat(refresh(r3)).as("legit newest token dies with it").contains("invalid_grant");
+		assertThat(jdbc.queryForList("SELECT detail FROM security_events WHERE user_id = ? AND type = 'TOKEN_REUSE'",
+				String.class, s.uid())).as("the owner sees it on the account page").containsExactly("Mirattic Sync");
 		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM oauth2_authorization WHERE principal_name = ?",
 				Integer.class, s.uid())).isZero();
 

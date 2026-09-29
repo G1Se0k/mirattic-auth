@@ -93,6 +93,19 @@
       </ul>
     </section>
 
+    <section id="activity" th:if="${!events.isEmpty()}">
+      <h2>최근 보안 활동</h2>
+      <ul class="devices">
+        <li th:each="e : ${events}">
+          <div>
+            <strong th:text="${e.type.label}">로그인</strong>
+            <p th:text="${#temporals.format(e.at, 'M월 d일 HH:mm')} + (${e.detail} ? ${' · ' + e.detail} : '')">9월 29일 14:02 · 이메일 · Chrome · Mac</p>
+          </div>
+        </li>
+      </ul>
+      <p class="hint">내가 한 일이 아닌 활동이 있으면 비밀번호를 바꾸고, 모르는 기기를 로그아웃하세요.</p>
+    </section>
+
     <section id="delete">
       <h2>탈퇴</h2>
       <p class="hint">Mirattic 계정과 함께 Mirattic Sync · Mirattic Flow의 데이터가 모두 삭제되며 되돌릴 수 없습니다.

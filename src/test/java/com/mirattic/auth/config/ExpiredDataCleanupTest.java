@@ -41,7 +41,13 @@ class ExpiredDataCleanupTest extends IntegrationTest {
 		jdbc.update("INSERT INTO password_reset_tokens VALUES (?, ?, ?, NOW(6) + INTERVAL 10 MINUTE, NULL, NOW(6))",
 				liveReset, user, "b".repeat(56) + liveReset.substring(0, 8));
 
+		jdbc.update("INSERT INTO security_events (user_id, type, created_at) VALUES "
+				+ "(?, 'SIGN_IN', NOW(6) - INTERVAL 91 DAY), (?, 'SIGN_IN', NOW(6) - INTERVAL 89 DAY)", user, user);
+
 		cleanup.run();
+
+		assertThat(jdbc.queryForList("SELECT created_at > NOW(6) - INTERVAL 90 DAY FROM security_events WHERE user_id = ?",
+				Boolean.class, user)).as("90 days kept").containsExactly(true);
 
 		assertThat(exists("oauth2_authorization", dead)).isFalse();
 		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM rotated_refresh_tokens WHERE authorization_id = ?",

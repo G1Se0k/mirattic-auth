@@ -55,13 +55,15 @@ Create the central Mirattic Auth project and finalize the first deployable authe
 - Apple
 - explicit linking
 
-### Phase 7 — Hardening / Production
-- rate limits
-- key rotation
-- security events
-- backups
-- monitoring
-- rollout
+### Phase 7 — Hardening / Production (done 2026-09-29 except as noted; user decisions the same day)
+- rate limits: already (per-IP 20/min on password POSTs, reset mail limits)
+- key rotation: previous key published during a rotation, only the current key signs (`SigningKeyConfig`),
+  `deploy/rotate-signing-key.sh rotate|retire` (`deployment.md` "Signing Keys"). Script not yet run on the host.
+- security events: `security.md` "Security Events", shown on the account page
+- backups: already daily on the host (7 days); off-host copy still open
+- monitoring: 5-minute uptime check with failure mail from the public Flow repo (`deployment.md` "Monitoring")
+- Validation: Codex quota exhausted → Claude reviewed directly (not a PASS). Auth 62 tests (all integration tests
+  run mid-rotation: two keys in the JWKS).
 
 ## Required Tests
 - Authorization Code + PKCE success/failure
@@ -181,9 +183,10 @@ Not changed: Sync / Flow code (user request: do not touch yet).
 - Sync's one pre-migration test account (production, 2026-09-28) lost its legacy login; signing in with a Mirattic account of any email creates a separate Sync profile.
 
 ## Next Task
-1. Phase 5 follow-ups (optional): adding email + password to a Kakao / Naver-only account (needs a decision on email
-   ownership, no verification today); a Codex Sol review of Phase 5 when quota returns.
-   (The Flow membership / chat-subscription bugs were fixed in Flow 2026-09-29, `c8f8e47`, `3d4027a`; Claude review.)
-2. Kakao / Naver consoles: rename the apps to "Mirattic", privacy URL https://auth.mirattic.com/privacy; then Naver
-   review (Kakao needs none for nickname only). Kakao unlink webhook: decided not to use (2026-09-29, user).
-3. Optional: DMARC `p=quarantine`; rotate the Resend API key (shared in chat).
+1. Try the key rotation once on the host (`rotate`, check Sync / Flow logins, `retire` a day later).
+2. Naver review (user; screenshots taken 2026-09-29, consent items: 이용자 식별자, 이름, 별명). Kakao console: app
+   name "Mirattic", privacy URL https://auth.mirattic.com/privacy. Kakao unlink webhook: decided not to use.
+3. Off-host backup copy (DB + signing key, encrypted); Phase 6 (Google / Apple) when their consoles are ready.
+4. Codex Sol review of Phases 5 and 7 when quota returns.
+5. Optional: adding email + password to a Kakao / Naver-only account (needs a decision on email ownership);
+   DMARC `p=quarantine`; rotate the Resend API key (shared in chat).

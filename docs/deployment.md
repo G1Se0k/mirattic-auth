@@ -80,12 +80,17 @@ passes `$` unchanged into the container). Not run: the CI deploy job and launchd
 ## Signing Keys
 Do not generate ephemeral signing keys on every restart.
 
-Plan for:
-- persistent private key
-- `kid`
-- current key
-- previous public key during rotation
-- secure backup
+- Current key: private RSA JWK in the `signing-key` volume (`/keys/signing-key.jwk.json`), generated once,
+  `kid` = RFC 7638 thumbprint. Backed up nightly (`backup.sh`).
+- Rotation (Phase 7), on the host, nobody signed out:
+  1. `deploy/backup.sh` (keep a copy of the old key), then `deploy/rotate-signing-key.sh rotate`: the current key
+     becomes `/keys/signing-key.previous.jwk.json`, Auth restarts and generates a new current key.
+     JWKS = new + previous (public); only the new key signs (`SigningKeyConfig.jwtEncoder`). Tokens signed before
+     (access / ID tokens, 15 min) keep verifying; refresh tokens are opaque and unaffected. Sync / Flow decoders
+     refetch the JWKS on an unknown `kid`.
+  2. A day later: `deploy/rotate-signing-key.sh retire` removes the previous key from the JWKS.
+  3. `deploy/backup.sh` again (the new key).
+- When: on suspicion of exposure (then retire after 15 minutes, not a day), otherwise yearly.
 
 ## Email
 Provider: Resend (SMTP). Verified domain `mail.mirattic.com`; sender `noreply@mail.mirattic.com`
@@ -97,7 +102,13 @@ Auth DB backup is critical.
 Signing private keys require separate secure backup.
 
 ## Monitoring
-Minimum:
+Uptime (Phase 7): `.github/workflows/uptime.yml` in the **public** Mirattic Flow repo (free Actions minutes) checks
+every 5 minutes, 3 tries 20 s apart: Auth and Sync `/actuator/health` 200, Flow `/login` 200 and `/api/users/me` 401
+(backend up). A failed run makes GitHub mail the account that last changed the workflow (Settings → Notifications →
+Actions: email on failed workflows). Limits: GitHub may start scheduled runs minutes late; schedules stop after 60
+days without repository activity; during an outage every run mails.
+
+Not yet (metrics):
 - login failures
 - signup rate
 - email send failures
