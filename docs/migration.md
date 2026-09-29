@@ -65,14 +65,19 @@ Remove from Sync:
 
 Keep product profile/friend/room/chat data.
 
-## Sync-side Work List (NOT started — Sync code changes need explicit approval)
-1. `/auth/start`, `/auth/callback`, `/api/auth/handoff` (one-time code, short TTL, single use)
-2. `/api/auth/refresh`, `/api/auth/logout` → relay to Auth token / revoke endpoints
-3. JwtDecoder: accept Auth RS256 (JWKS) + legacy HS256 during dual acceptance
-4. user sync: first Auth login of an unknown `sub` → create Sync `users` row (product fields only)
-5. extension: `identity` permission, "Mirattic 계정으로 로그인" button, drop password forms
-6. import existing Sync accounts into Auth (one-shot, dry-run first — destructive-migration approval needed)
-7. remove legacy auth after stabilization
+## Sync-side Work List (approved 2026-09-29; Sync `docs/progress.md`, `docs/protocol/rest.md`)
+1. ✅ `/auth/start`, `/auth/callback`, `/api/auth/handoff` (one-time code, 60 s, single use, bound to the
+   extension's own PKCE verifier; state bound to the browser by a `sync_login` cookie)
+2. ✅ `/api/auth/refresh`, `/api/auth/logout` → relay to Auth token / revoke endpoints (legacy tokens told
+   apart by their DB hash; only Auth `400 invalid_grant` becomes 401, other failures 502)
+3. ✅ JwtDecoder: Auth RS256 (JWKS, aud `mirattic-sync`, access tokens only) + legacy HS256, picked by `alg`
+4. ✅ user sync: first Auth login of an unknown `sub` → Sync `users` row (product fields only)
+5. ✅ extension 0.0.13: `identity` permission, "Mirattic 계정으로 로그인" button, password forms dropped;
+   legacy Sync sign-up returns 410 in production
+6. ➖ import skipped (2026-09-29, user decision): production Sync had no real accounts (one test account,
+   which keeps its legacy login until step 7).
+7. ⏳ remove legacy auth after stabilization; replace the password-confirmed Sync account deletion with an
+   Auth re-authentication (Auth-only users have no Sync password)
 
 ## Flow
 If Flow has separate accounts:
