@@ -45,6 +45,10 @@ Server-rendered on `/account` ("로그인 방법"). Rules in `security.md` "Acco
 
 ## Account Deletion (Phase 5, `AccountDeletion`)
 `POST /account/delete` (session + CSRF, `confirm=true`, sign-in in the last 10 minutes else `/login?reauth`).
+0. Fence: `users.status` ACTIVE → DISABLED (only one deletion per account at a time; a second gets "이미 탈퇴를
+   처리하고 있습니다") and every other browser session and app login ends. While fenced nobody signs in, no code is
+   exchanged, no token refreshed, no link attached, so no product profile is made again behind a product's 204. A
+   product failure lifts the fence (back to ACTIVE; the ended app logins stay ended).
 1. Flow, then Sync, are ordered to delete the user's data: `POST {product}/api/internal/account-deletion` with
    `Authorization: Bearer <order>`. The order is a JWT signed with Auth's key (RS256, JWKS `kid`): `iss` = Auth,
    `aud` = the product's client id, `sub` = UID, `purpose` = `account_deletion`, `exp` = 60 s, no `scope`.

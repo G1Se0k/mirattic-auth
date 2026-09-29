@@ -25,6 +25,8 @@ final class SocialStub {
 	static final Map<String, Map.Entry<Integer, String>> DELETION = new ConcurrentHashMap<>();
 	/** Deletion orders received, in order: product + " " + bearer token. */
 	static final List<String> DELETIONS = new CopyOnWriteArrayList<>();
+	/** Runs while a product's deletion endpoint is handling the order (what Auth looks like mid-deletion). */
+	static volatile Runnable duringDeletion = () -> { };
 
 	static {
 		try {
@@ -52,6 +54,7 @@ final class SocialStub {
 				SERVER.createContext("/" + product + "/delete", ex -> {
 					DELETIONS.add(product + " " + String.valueOf(ex.getRequestHeaders().getFirst("Authorization"))
 							.replace("Bearer ", ""));
+					duringDeletion.run();
 					Map.Entry<Integer, String> answer = DELETION.getOrDefault(product, Map.entry(204, ""));
 					if (answer.getKey() == 204) {
 						ex.sendResponseHeaders(204, -1);

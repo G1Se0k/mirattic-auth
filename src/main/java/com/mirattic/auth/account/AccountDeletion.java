@@ -69,10 +69,25 @@ public class AccountDeletion {
 	/**
 	 * Deletes the account everywhere, or throws AccountException saying why not (nothing of Auth deleted then). The
 	 * caller ends the current browser session; every other one and every app login is ended here.
+	 * <p>
+	 * First the account is fenced (ACTIVE → DISABLED): while the products delete, nobody can sign in, exchange a code
+	 * or refresh (tokens are minted for ACTIVE accounts only), or finish a link — so no product profile is made again
+	 * behind a product's 204. Only one deletion of an account runs at a time. On a product failure the fence is lifted.
 	 */
 	public void delete(String userId, String currentSessionId) {
-		for (Product p : products) {
-			deleteIn(p, userId);
+		if (jdbc.update("UPDATE users SET status = 'DISABLED', updated_at = NOW(6) WHERE id = ? AND status = 'ACTIVE'",
+				userId) == 0) {
+			throw new AccountException("이미 탈퇴를 처리하고 있습니다.");
+		}
+		accounts.endSessions(userId, currentSessionId); // app logins end now: no refresh during the deletion
+		try {
+			for (Product p : products) {
+				deleteIn(p, userId);
+			}
+		} catch (RuntimeException e) {
+			jdbc.update("UPDATE users SET status = 'ACTIVE', updated_at = NOW(6) WHERE id = ? AND status = 'DISABLED'",
+					userId);
+			throw e;
 		}
 		tx.executeWithoutResult(s -> {
 			// The row stays (DELETED) so the UID is never reused; everything that signs in or identifies goes.

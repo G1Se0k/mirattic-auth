@@ -21,7 +21,9 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -295,10 +297,28 @@ class AccountFlowTest extends IntegrationTest {
 		Cookie session = login(email, "password-1");
 		Cookie other = login(email, "password-1");
 		String refresh = JsonPath.read(exchange(authorize(session)), "$.refresh_token");
+		String pendingCode = authorize(session);
 		SocialStub.DELETIONS.clear();
-
-		mvc.perform(post("/account/delete").with(csrf()).cookie(session).param("confirm", "true"))
-				.andExpect(redirectedUrl("/login?deleted"));
+		// While the products delete, the account is fenced: no code exchange (a product profile made again behind
+		// its 204), no sign-in.
+		List<String> during = new CopyOnWriteArrayList<>();
+		SocialStub.duringDeletion = () -> {
+			try {
+				during.add(jdbc.queryForObject("SELECT status FROM users WHERE id = ?", String.class, uid));
+				during.add(token(SECRET, "grant_type", "authorization_code", "code", pendingCode, "redirect_uri", REDIRECT,
+						"code_verifier", VERIFIER).andReturn().getResponse().getContentAsString());
+			} catch (Exception e) {
+				during.add(e.toString());
+			}
+		};
+		try {
+			mvc.perform(post("/account/delete").with(csrf()).cookie(session).param("confirm", "true"))
+					.andExpect(redirectedUrl("/login?deleted"));
+		} finally {
+			SocialStub.duringDeletion = () -> { };
+		}
+		assertThat(during.get(0)).isEqualTo("DISABLED");
+		assertThat(during.get(1)).contains("invalid_grant");
 
 		// Flow first (it may refuse), then Sync; each gets its own one-minute order for this user.
 		assertThat(SocialStub.DELETIONS).hasSize(2);
@@ -351,8 +371,18 @@ class AccountFlowTest extends IntegrationTest {
 		} finally {
 			SocialStub.DELETION.clear();
 		}
+		// A failed deletion lifts the fence.
 		assertThat(jdbc.queryForObject("SELECT status FROM users WHERE id = ?", String.class, uid)).isEqualTo("ACTIVE");
 		mvc.perform(get("/account").cookie(session)).andExpect(status().isOk());
+		login(email, "password-1");
+
+		// One deletion of an account at a time: a second one while the first runs is refused.
+		jdbc.update("UPDATE users SET status = 'DISABLED' WHERE id = ?", uid);
+		SocialStub.DELETIONS.clear();
+		mvc.perform(post("/account/delete").with(csrf()).cookie(session).param("confirm", "true"))
+				.andExpect(content().string(containsString("이미 탈퇴를 처리하고 있습니다")));
+		assertThat(SocialStub.DELETIONS).isEmpty();
+		jdbc.update("UPDATE users SET status = 'ACTIVE' WHERE id = ?", uid);
 
 		// No confirmation: nothing is asked of the products.
 		SocialStub.DELETIONS.clear();

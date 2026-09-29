@@ -64,7 +64,9 @@ Create the central Mirattic Auth project and finalize the first deployable authe
 - monitoring: 5-minute uptime check with failure mail from the public Flow repo (`deployment.md` "Monitoring")
 - Validation: Claude review, then Codex Sol (Phases 5 + 7, 2026-09-29): FAIL ×4 → fixed (deletion needs exactly
   204; a link after deletion adds nothing; unlink ends other sessions and app logins; no second rotate before
-  retire). Auth 63 tests (all integration tests run mid-rotation: two keys in the JWKS). Re-review pending.
+  retire). Codex re-review + Flow / Sync reviews: FAIL → fixed (unlink also ends this browser if it signed in with
+  the removed method; deletion fences the account first so no product profile is re-created mid-deletion; Flow
+  counts owners with a locking read). Auth 63 tests. Second re-review pending.
 
 ## Required Tests
 - Authorization Code + PKCE success/failure
@@ -170,8 +172,11 @@ Not changed: Sync / Flow code (user request: do not touch yet).
 - Social accounts can't be linked to an existing account yet (a first Kakao / Naver sign-in always makes a new one).
 - No email verification (decided 2026-09-29): anyone can sign up with an email they don't own (the owner can take it over via reset). Mitigated by one signup per network per day.
 - Shared networks (office / campus / mobile CGNAT) get one signup per day in total.
-- Account deletion: if Flow deleted and then Sync fails, the Auth account stays (the user is told to retry); a Flow
-  sign-in before the retry makes a fresh, empty Flow profile, deleted by the retry.
+- Account deletion: if Flow deleted and then Sync fails, the Auth account stays ACTIVE again (the user is told to
+  retry). If Auth itself dies between the fence and the end, the account stays DISABLED (can't sign in) until fixed
+  by hand (`UPDATE users SET status='ACTIVE'`, then the user retries).
+- Flow keeps a deleted user's former name inside other people's generated texts (system chat lines about issue
+  changes, comment notifications). Retention decision pending (Codex Sol, 2026-09-29).
 - Device list: browsers signed in before 2026-09-29 (Phase 5) show "알 수 없는 브라우저" until they sign in again.
   App logins show the product name only (the token call comes from the product's server, not the device).
 - Linking races with a database deadlock (a first sign-in of the same Kakao account at the same moment) end in a

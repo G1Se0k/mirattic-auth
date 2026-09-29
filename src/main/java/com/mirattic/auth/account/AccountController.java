@@ -8,6 +8,7 @@ import java.time.Instant;
 import java.util.Locale;
 import java.util.Set;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
@@ -155,7 +156,8 @@ class AccountController {
 	}
 
 	@PostMapping("/account/unlink/{provider}")
-	String unlink(@PathVariable String provider, Authentication auth, HttpSession session, Model model) {
+	String unlink(@PathVariable String provider, Authentication auth, HttpServletRequest request,
+			HttpServletResponse response, HttpSession session, Model model) {
 		if (!PROVIDERS.contains(provider)) {
 			return "redirect:/account";
 		}
@@ -164,6 +166,12 @@ class AccountController {
 		}
 		try {
 			accounts.unlink(auth.getName(), provider.toUpperCase(Locale.ROOT), session.getId());
+			// This browser signed in with the method just removed: it is out too.
+			if (auth instanceof OAuth2AuthenticationToken social
+					&& provider.equals(social.getAuthorizedClientRegistrationId())) {
+				logout.logout(request, response, auth);
+				return "redirect:/login?unlinked";
+			}
 			return "redirect:/account?unlinked#methods";
 		} catch (AccountException e) {
 			return accountWithError(auth, session, model, e);

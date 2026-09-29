@@ -209,16 +209,26 @@ class SocialLoginTest extends IntegrationTest {
 				Integer.class, uid)).isOne();
 
 		// Removing it: allowed while the password remains. Whoever signed in with it (elsewhere) is out.
+		Cookie laptop = login(email, "password-1");
 		Cookie viaKakao = signIn("kakao", kakao(kakaoId, "other@example.com", "카카오이름"), null).session();
 		mvc.perform(get("/account").cookie(viaKakao)).andExpect(status().isOk());
-		mvc.perform(post("/account/unlink/kakao").with(csrf()).cookie(in.session()))
+		mvc.perform(post("/account/unlink/kakao").with(csrf()).cookie(laptop))
 				.andExpect(redirectedUrl("/account?unlinked#methods"));
 		assertThat(owner("KAKAO", kakaoId)).isNull();
 		mvc.perform(get("/account").cookie(viaKakao)).andExpect(redirectedUrl("/login"));
-		mvc.perform(get("/account").cookie(in.session())).andExpect(status().isOk());
+		mvc.perform(get("/account").cookie(laptop)).andExpect(status().isOk());
+
+		// Removed from a browser that signed in with it: that browser is out too.
+		String naverId = "nv-" + UUID.randomUUID();
+		MockHttpServletResponse linked = link(laptop, "naver", naver(naverId, email, "네이버이름"));
+		Cookie viaNaver = linked.getCookie("SESSION"); // the link was a Naver sign-in of this browser
+		mvc.perform(post("/account/unlink/naver").with(csrf()).cookie(viaNaver))
+				.andExpect(redirectedUrl("/login?unlinked"));
+		mvc.perform(get("/account").cookie(viaNaver)).andExpect(redirectedUrl("/login"));
+		assertThat(owner("NAVER", naverId)).isNull();
 		assertThat(jdbc.queryForList("SELECT CONCAT(type, ':', detail) FROM security_events WHERE user_id = ? "
 				+ "AND type IN ('LINKED', 'UNLINKED') ORDER BY id", String.class, uid))
-				.containsExactly("LINKED:카카오", "UNLINKED:카카오");
+				.containsExactly("LINKED:카카오", "UNLINKED:카카오", "LINKED:네이버", "UNLINKED:네이버");
 	}
 
 	@Test

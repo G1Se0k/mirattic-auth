@@ -87,7 +87,8 @@ Linking (Phase 5, account page, Kakao / Naver only):
   to another account (`link_error=taken`, never moved), a second identity of the same provider (`exists`).
 - Unlinking (same 10-minute rule) needs another sign-in method left; the users row is locked so two concurrent
   unlinks can't remove the last one. Like a password change, it ends every other browser session and every app
-  login (whoever signed in with the removed method is out).
+  login (whoever signed in with the removed method is out); if this browser itself signed in with it, it is
+  logged out too (`/login?unlinked`).
 - A link only attaches to an ACTIVE account, checked under the users-row lock that deletion also takes: a link
   callback finishing after the account was deleted adds nothing. Email + password can't be added to a social-only account yet.
 
