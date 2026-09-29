@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
@@ -58,6 +59,7 @@ public class AccountDeletion {
 		SimpleClientHttpRequestFactory timeouts = new SimpleClientHttpRequestFactory();
 		timeouts.setConnectTimeout(Duration.ofSeconds(5));
 		timeouts.setReadTimeout(Duration.ofSeconds(20));
+		// SimpleClientHttpRequestFactory follows no redirect on POST: a 3xx comes back and fails the 204 check.
 		this.http = RestClient.builder().requestFactory(timeouts).build();
 		this.jdbc = jdbc;
 		this.tx = tx;
@@ -86,7 +88,15 @@ public class AccountDeletion {
 
 	private void deleteIn(Product p, String userId) {
 		try {
-			http.post().uri(p.url()).headers(h -> h.setBearerAuth(token(p.clientId(), userId))).retrieve().toBodilessEntity();
+			HttpStatusCode status = http.post().uri(p.url()).headers(h -> h.setBearerAuth(token(p.clientId(), userId)))
+					.retrieve().toBodilessEntity().getStatusCode();
+			// Only 204 confirms the deletion: a 200 / 202 / redirect (a gateway, a login page) does not.
+			if (!status.isSameCodeAs(HttpStatus.NO_CONTENT)) {
+				log.warn("{} account deletion answered HTTP {}, not 204", p.clientId(), status.value());
+				throw unavailable(p);
+			}
+		} catch (AccountException e) {
+			throw e;
 		} catch (RestClientResponseException e) {
 			if (e.getStatusCode().isSameCodeAs(HttpStatus.CONFLICT)) {
 				String reason = reason(e);

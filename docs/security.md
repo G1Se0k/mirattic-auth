@@ -86,7 +86,10 @@ Linking (Phase 5, account page, Kakao / Naver only):
 - The callback attaches the identity only to the account still signed in there. Refused: an identity that belongs
   to another account (`link_error=taken`, never moved), a second identity of the same provider (`exists`).
 - Unlinking (same 10-minute rule) needs another sign-in method left; the users row is locked so two concurrent
-  unlinks can't remove the last one. Email + password can't be added to a social-only account yet.
+  unlinks can't remove the last one. Like a password change, it ends every other browser session and every app
+  login (whoever signed in with the removed method is out).
+- A link only attaches to an ACTIVE account, checked under the users-row lock that deletion also takes: a link
+  callback finishing after the account was deleted adds nothing. Email + password can't be added to a social-only account yet.
 
 ## Security Events (Phase 7, `SecurityEvents`, V5 `security_events`)
 Shown to the account's owner ("최근 보안 활동", last 10 on `/account`): sign-in (method + browser kind), password

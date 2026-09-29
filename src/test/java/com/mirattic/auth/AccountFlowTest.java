@@ -342,6 +342,12 @@ class AccountFlowTest extends IntegrationTest {
 			SocialStub.DELETION.put("sync", Map.entry(500, "{}"));
 			mvc.perform(post("/account/delete").with(csrf()).cookie(session).param("confirm", "true"))
 					.andExpect(content().string(containsString("Mirattic Sync에 연결하지 못해")));
+			// Only 204 confirms: a 200 or 202 (not done), or a redirect (a gateway / login page) is not a deletion.
+			for (int status : new int[] {200, 202, 302}) {
+				SocialStub.DELETION.put("sync", Map.entry(status, "{}"));
+				mvc.perform(post("/account/delete").with(csrf()).cookie(session).param("confirm", "true"))
+						.andExpect(content().string(containsString("Mirattic Sync에 연결하지 못해")));
+			}
 		} finally {
 			SocialStub.DELETION.clear();
 		}

@@ -12,7 +12,7 @@
 
     <p class="note error" th:if="${error}" th:text="${error}"></p>
     <p class="note ok" th:if="${param.saved}">이름을 저장했습니다.</p>
-    <p class="note ok" th:if="${param.unlinked}">연결을 해제했습니다.</p>
+    <p class="note ok" th:if="${param.unlinked}">연결을 해제했습니다. 다른 기기와 앱에서는 다시 로그인해야 합니다.</p>
     <p class="note error" th:if="${param.link_error}" th:switch="${param.link_error[0]}">
       <span th:case="'taken'">그 계정은 이미 다른 Mirattic 계정의 로그인 방법입니다.</span>
       <span th:case="'exists'">이미 같은 서비스의 다른 계정이 연결되어 있습니다. 먼저 해제하세요.</span>

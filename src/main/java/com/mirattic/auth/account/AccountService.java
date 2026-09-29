@@ -214,10 +214,11 @@ public class AccountService {
 
 	/**
 	 * Removes a Kakao / Naver sign-in method, only while another one remains (the users row is locked, so two
-	 * concurrent removals can't leave none).
+	 * concurrent removals can't leave none). Like a password change, every other browser session and every app login
+	 * ends: whoever signed in with the removed method is out.
 	 */
 	@Transactional
-	public void unlink(String userId, String provider) {
+	public void unlink(String userId, String provider, String currentSessionId) {
 		jdbc.queryForObject("SELECT id FROM users WHERE id = ? FOR UPDATE", String.class, userId);
 		Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM user_identities WHERE user_id = ?", Integer.class,
 				userId);
@@ -226,6 +227,7 @@ public class AccountService {
 		}
 		if (jdbc.update("DELETE FROM user_identities WHERE user_id = ? AND provider = ?", userId, provider) > 0) {
 			events.record(userId, SecurityEvents.Type.UNLINKED, "KAKAO".equals(provider) ? "카카오" : "네이버");
+			endSessions(userId, currentSessionId);
 		}
 	}
 

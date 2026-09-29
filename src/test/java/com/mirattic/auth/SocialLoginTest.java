@@ -208,10 +208,14 @@ class SocialLoginTest extends IntegrationTest {
 		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM users u WHERE u.id = ? AND u.display_name = 'L'",
 				Integer.class, uid)).isOne();
 
-		// Removing it: allowed while the password remains.
+		// Removing it: allowed while the password remains. Whoever signed in with it (elsewhere) is out.
+		Cookie viaKakao = signIn("kakao", kakao(kakaoId, "other@example.com", "카카오이름"), null).session();
+		mvc.perform(get("/account").cookie(viaKakao)).andExpect(status().isOk());
 		mvc.perform(post("/account/unlink/kakao").with(csrf()).cookie(in.session()))
 				.andExpect(redirectedUrl("/account?unlinked#methods"));
 		assertThat(owner("KAKAO", kakaoId)).isNull();
+		mvc.perform(get("/account").cookie(viaKakao)).andExpect(redirectedUrl("/login"));
+		mvc.perform(get("/account").cookie(in.session())).andExpect(status().isOk());
 		assertThat(jdbc.queryForList("SELECT CONCAT(type, ':', detail) FROM security_events WHERE user_id = ? "
 				+ "AND type IN ('LINKED', 'UNLINKED') ORDER BY id", String.class, uid))
 				.containsExactly("LINKED:카카오", "UNLINKED:카카오");
@@ -240,6 +244,22 @@ class SocialLoginTest extends IntegrationTest {
 				.endsWith("/account?link_error=exists");
 		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM user_identities WHERE user_id = ?", Integer.class, uid))
 				.isEqualTo(2);
+	}
+
+	@Test
+	void aLinkFinishingAfterTheAccountWasDeletedAddsNothing() throws Exception {
+		String email = email();
+		String uid = signup(email, "password-1", "L");
+		Cookie session = login(email, "password-1");
+		mvc.perform(post("/account/link/kakao").with(csrf()).cookie(session));
+		// The account is deleted (another tab) while this browser is at Kakao.
+		jdbc.update("UPDATE users SET status = 'DELETED' WHERE id = ?", uid);
+		String kakaoId = providerId();
+		assertThat(start("kakao", kakao(kakaoId, null, "늦은연결"), session).getRedirectedUrl())
+				.endsWith("/account?link_error=failed");
+		assertThat(owner("KAKAO", kakaoId)).isNull();
+		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM security_events WHERE user_id = ? AND type = 'LINKED'",
+				Integer.class, uid)).isZero();
 	}
 
 	@Test

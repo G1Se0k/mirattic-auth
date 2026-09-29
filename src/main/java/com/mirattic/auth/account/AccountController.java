@@ -163,7 +163,7 @@ class AccountController {
 			return "redirect:/login?reauth";
 		}
 		try {
-			accounts.unlink(auth.getName(), provider.toUpperCase(Locale.ROOT));
+			accounts.unlink(auth.getName(), provider.toUpperCase(Locale.ROOT), session.getId());
 			return "redirect:/account?unlinked#methods";
 		} catch (AccountException e) {
 			return accountWithError(auth, session, model, e);

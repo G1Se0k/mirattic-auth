@@ -122,7 +122,10 @@ public class SocialLogin implements OAuth2UserService<OAuth2UserRequest, OAuth2U
 
 	/** The users row is locked first, as AccountService.unlink does. */
 	private void attach(String uid, Profile p) {
-		jdbc.queryForObject("SELECT id FROM users WHERE id = ? FOR UPDATE", String.class, uid);
+		// Under the lock AccountDeletion's update also takes: a link finishing after a deletion adds nothing.
+		if (!"ACTIVE".equals(jdbc.queryForObject("SELECT status FROM users WHERE id = ? FOR UPDATE", String.class, uid))) {
+			throw failure("link_failed");
+		}
 		List<String> owner = jdbc.queryForList(
 				"SELECT user_id FROM user_identities WHERE provider = ? AND subject = ? FOR UPDATE", String.class,
 				p.provider(), p.subject());

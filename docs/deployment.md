@@ -88,7 +88,8 @@ Do not generate ephemeral signing keys on every restart.
      JWKS = new + previous (public); only the new key signs (`SigningKeyConfig.jwtEncoder`). Tokens signed before
      (access / ID tokens, 15 min) keep verifying; refresh tokens are opaque and unaffected. Sync / Flow decoders
      refetch the JWKS on an unknown `kid`.
-  2. A day later: `deploy/rotate-signing-key.sh retire` removes the previous key from the JWKS.
+  2. A day later: `deploy/rotate-signing-key.sh retire` removes the previous key from the JWKS. `rotate` refuses to
+     run while a previous key is still published (it would drop a key unexpired tokens need).
   3. `deploy/backup.sh` again (the new key).
 - When: on suspicion of exposure (then retire after 15 minutes, not a day), otherwise yearly.
 

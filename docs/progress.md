@@ -62,8 +62,9 @@ Create the central Mirattic Auth project and finalize the first deployable authe
 - security events: `security.md` "Security Events", shown on the account page
 - backups: already daily on the host (7 days); off-host copy still open
 - monitoring: 5-minute uptime check with failure mail from the public Flow repo (`deployment.md` "Monitoring")
-- Validation: Codex quota exhausted → Claude reviewed directly (not a PASS). Auth 62 tests (all integration tests
-  run mid-rotation: two keys in the JWKS).
+- Validation: Claude review, then Codex Sol (Phases 5 + 7, 2026-09-29): FAIL ×4 → fixed (deletion needs exactly
+  204; a link after deletion adds nothing; unlink ends other sessions and app logins; no second rotate before
+  retire). Auth 63 tests (all integration tests run mid-rotation: two keys in the JWKS). Re-review pending.
 
 ## Required Tests
 - Authorization Code + PKCE success/failure

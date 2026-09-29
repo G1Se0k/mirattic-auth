@@ -23,6 +23,11 @@ healthy() {
 
 case "${1:-}" in
   rotate)
+    # A previous key still published may still be needed (tokens it signed): retire it first.
+    if docker compose exec -T auth sh -c "test -e $previous"; then
+      echo "A previous key is still published. Run '$0 retire' first (at least 15 minutes after the last rotate)." >&2
+      exit 1
+    fi
     old=$(kid "$keys")
     docker compose exec -T auth sh -c "mv $keys $previous"
     docker compose restart auth
