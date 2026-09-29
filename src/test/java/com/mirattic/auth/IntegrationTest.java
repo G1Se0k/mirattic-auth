@@ -1,17 +1,37 @@
 package com.mirattic.auth;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestBuilders.formLogin;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.net.URI;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.util.Base64;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.web.util.UriComponentsBuilder;
 import org.testcontainers.mysql.MySQLContainer;
 
 /** One MySQL container and one Spring context shared by every test class. */
@@ -46,4 +66,78 @@ public abstract class IntegrationTest {
 
 	@Autowired
 	protected JdbcTemplate jdbc;
+
+	// Dev client from application-local.yml.
+	protected static final String CLIENT = "mirattic-sync";
+	protected static final String SECRET = "dev-sync-secret";
+	protected static final String REDIRECT = "http://127.0.0.1:8080/auth/callback";
+	protected static final String VERIFIER = "dBjftJeZ4CVP-mJ92K9qOVHGwVcRZa8uAmhPJ5lDSWk";
+
+	protected static String email() {
+		return "u" + UUID.randomUUID().toString().substring(0, 8) + "@mirattic.com";
+	}
+
+	protected static String s256(String verifier) {
+		try {
+			return Base64.getUrlEncoder().withoutPadding().encodeToString(
+					MessageDigest.getInstance("SHA-256").digest(verifier.getBytes(StandardCharsets.US_ASCII)));
+		} catch (Exception e) {
+			throw new IllegalStateException(e);
+		}
+	}
+
+	/** Payload of a JWT as JSON. */
+	protected static String claims(String jwt) {
+		return new String(Base64.getUrlDecoder().decode(jwt.split("\\.")[1]), StandardCharsets.UTF_8);
+	}
+
+	protected MockHttpSession login(String email, String password) throws Exception {
+		MvcResult r = mvc.perform(formLogin("/login").user(email).password(password))
+				.andExpect(redirectedUrl("/"))
+				.andReturn();
+		return (MockHttpSession) r.getRequest().getSession(false);
+	}
+
+	protected void loginFails(String email, String password) throws Exception {
+		mvc.perform(formLogin("/login").user(email).password(password)).andExpect(redirectedUrl("/login?error"));
+	}
+
+	protected String authorize(MockHttpSession session) throws Exception {
+		return authorize(session, "openid profile");
+	}
+
+	/** /oauth2/authorize with state=st1, nonce=n1, PKCE S256; returns the code. */
+	protected String authorize(MockHttpSession session, String scope) throws Exception {
+		String location = mvc.perform(get(URI.create("/oauth2/authorize?response_type=code&client_id=" + CLIENT
+						+ "&redirect_uri=" + REDIRECT + "&scope=" + scope.replace(" ", "%20") + "&state=st1&nonce=n1"
+						+ "&code_challenge=" + s256(VERIFIER) + "&code_challenge_method=S256")).session(session))
+				.andExpect(status().is3xxRedirection())
+				.andReturn().getResponse().getRedirectedUrl();
+		assertThat(location).startsWith(REDIRECT + "?code=").contains("state=st1");
+		return URLDecoder.decode(UriComponentsBuilder.fromUriString(location).build().getQueryParams().getFirst("code"),
+				StandardCharsets.UTF_8);
+	}
+
+	/** POST /oauth2/token with client_secret_basic. Parameters must be in the form body. */
+	protected ResultActions token(String secret, String... params) throws Exception {
+		StringBuilder body = new StringBuilder();
+		for (int i = 0; i < params.length; i += 2) {
+			body.append(i == 0 ? "" : "&").append(params[i]).append('=')
+					.append(URLEncoder.encode(params[i + 1], StandardCharsets.UTF_8));
+		}
+		return mvc.perform(post("/oauth2/token").with(httpBasic(CLIENT, secret))
+				.contentType(MediaType.APPLICATION_FORM_URLENCODED).content(body.toString()));
+	}
+
+	protected String exchange(String code) throws Exception {
+		return token(SECRET, "grant_type", "authorization_code", "code", code, "redirect_uri", REDIRECT,
+				"code_verifier", VERIFIER)
+				.andExpect(status().isOk())
+				.andReturn().getResponse().getContentAsString();
+	}
+
+	protected String refresh(String refreshToken) throws Exception {
+		return token(SECRET, "grant_type", "refresh_token", "refresh_token", refreshToken)
+				.andReturn().getResponse().getContentAsString();
+	}
 }

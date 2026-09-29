@@ -30,7 +30,7 @@ Use `kid` for key rotation.
 - OIDC `nonce`
 - exact redirect URI allow-list
 - no wildcard production redirects
-- exception: loopback redirects (`http://127.0.0.1:<port>/...`) for native desktop clients match any port (RFC 8252 §7.3, Spring default); scheme, host and path still exact
+- loopback redirects (`http://127.0.0.1:<port>/...`) match any port (Spring default, RFC 8252); dev-only since prod registers none (`clients.md`)
 
 ## Auth Web Session
 - Secure
@@ -69,6 +69,17 @@ Explicit linking is the default.
 - password reset tokens
 - session cookies
 - authorization codes
+
+## Token Storage
+All OAuth token values in `oauth2_authorization` are stored as `sha256:<hex>`; lookups hash the presented
+value. Refresh rotation is mandatory for this (startup check).
+
+## Client Secrets
+Sync/Flow are confidential clients: Auth keeps only BCrypt hashes (`*_CLIENT_SECRET_HASH`), products keep
+the raw secret server-side. Details: `clients.md`.
+
+## Account State
+Tokens are minted only for `ACTIVE` accounts (checked on every code exchange and refresh).
 
 ## Secrets
 Keep outside source:

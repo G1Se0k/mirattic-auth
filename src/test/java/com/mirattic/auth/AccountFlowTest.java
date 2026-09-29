@@ -6,7 +6,6 @@ import static org.mockito.Mockito.after;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestBuilders.formLogin;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -18,12 +17,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.jayway.jsonpath.JsonPath;
 import com.mirattic.auth.account.AccountException;
 import com.mirattic.auth.account.AccountService;
-import java.net.URI;
-import java.net.URLDecoder;
-import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.util.Base64;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -31,46 +25,15 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.MediaType;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mock.web.MockHttpSession;
-import org.springframework.test.web.servlet.MvcResult;
-import org.springframework.web.util.UriComponentsBuilder;
 
 class AccountFlowTest extends IntegrationTest {
 
-	static final String VERIFIER = "dBjftJeZ4CVP-mJ92K9qOVHGwVcRZa8uAmhPJ5lDSWk";
-	static final String CHALLENGE = s256(VERIFIER);
-	static final String REDIRECT = "http://127.0.0.1:8081/callback";
-
 	@Autowired AccountService accounts;
 
-	static String s256(String verifier) {
-		try {
-			return Base64.getUrlEncoder().withoutPadding().encodeToString(
-					MessageDigest.getInstance("SHA-256").digest(verifier.getBytes(StandardCharsets.US_ASCII)));
-		} catch (Exception e) {
-			throw new IllegalStateException(e);
-		}
-	}
-
-	static String email() {
-		return "u" + UUID.randomUUID().toString().substring(0, 8) + "@mirattic.com";
-	}
-
-	MockHttpSession login(String email, String password) throws Exception {
-		MvcResult r = mvc.perform(formLogin("/login").user(email).password(password))
-				.andExpect(redirectedUrl("/"))
-				.andReturn();
-		return (MockHttpSession) r.getRequest().getSession(false);
-	}
-
-	void loginFails(String email, String password) throws Exception {
-		mvc.perform(formLogin("/login").user(email).password(password)).andExpect(redirectedUrl("/login?error"));
-	}
-
 	@Test
-	void signupPageThenLoginThenPkceIssuesTokensWithUidAsSub() throws Exception {
+	void signupThenLoginThenAuthorizationCodeIssuesTokensWithUidAsSub() throws Exception {
 		String email = email();
 		mvc.perform(post("/signup").with(csrf())
 						.param("email", " " + email.toUpperCase() + " ")
@@ -80,37 +43,18 @@ class AccountFlowTest extends IntegrationTest {
 		String uid = jdbc.queryForObject("SELECT user_id FROM user_identities WHERE subject = ?", String.class, email);
 		assertThat(accounts.find(uid).displayName()).isEqualTo("기석");
 
-		MockHttpSession session = login(email, "correct horse");
-		String location = mvc.perform(get(URI.create("/oauth2/authorize?response_type=code&client_id=mirattic-dev"
-						+ "&redirect_uri=" + REDIRECT + "&scope=openid%20profile&state=st1&nonce=n1"
-						+ "&code_challenge=" + CHALLENGE + "&code_challenge_method=S256")).session(session))
-				.andExpect(status().is3xxRedirection())
-				.andReturn().getResponse().getRedirectedUrl();
-		assertThat(location).startsWith(REDIRECT + "?code=").contains("state=st1");
-		String code = URLDecoder.decode(
-				UriComponentsBuilder.fromUriString(location).build().getQueryParams().getFirst("code"),
-				StandardCharsets.UTF_8);
-
-		// Token request parameters must be in the form body.
-		String body = mvc.perform(post("/oauth2/token")
-						.contentType(MediaType.APPLICATION_FORM_URLENCODED)
-						.content("grant_type=authorization_code&client_id=mirattic-dev&code_verifier=" + VERIFIER
-								+ "&redirect_uri=" + URLEncoder.encode(REDIRECT, StandardCharsets.UTF_8)
-								+ "&code=" + URLEncoder.encode(code, StandardCharsets.UTF_8)))
-				.andDo(r -> assertThat(r.getResponse().getStatus()).as(r.getResponse().getContentAsString()).isEqualTo(200))
-				.andExpect(status().isOk())
-				.andReturn().getResponse().getContentAsString();
+		String body = exchange(authorize(login(email, "correct horse")));
 
 		String idToken = JsonPath.read(body, "$.id_token");
 		String accessToken = JsonPath.read(body, "$.access_token");
-		String idClaims = new String(Base64.getUrlDecoder().decode(idToken.split("\\.")[1]), StandardCharsets.UTF_8);
-		String accessClaims = new String(Base64.getUrlDecoder().decode(accessToken.split("\\.")[1]),
-				StandardCharsets.UTF_8);
+		String idClaims = claims(idToken);
+		String accessClaims = claims(accessToken);
 		assertThat((String) JsonPath.read(idClaims, "$.sub")).isEqualTo(uid);
 		assertThat((String) JsonPath.read(idClaims, "$.nonce")).isEqualTo("n1");
 		assertThat((String) JsonPath.read(idClaims, "$.iss")).isEqualTo("http://localhost:9000");
 		assertThat((String) JsonPath.read(accessClaims, "$.sub")).isEqualTo(uid);
-		assertThat(body).doesNotContain("refresh_token");
+		assertThat((String) JsonPath.read(accessClaims, "$.aud")).isEqualTo(CLIENT);
+		assertThat((String) JsonPath.read(body, "$.refresh_token")).isNotBlank();
 	}
 
 	@Test

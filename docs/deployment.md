@@ -78,3 +78,4 @@ docker compose up -d                                        # MySQL 8.4 on 3307 
 | `PORT` | `9000` |
 | `SPRING_MAIL_HOST` / `SPRING_MAIL_PORT` / `SPRING_MAIL_USERNAME` / `SPRING_MAIL_PASSWORD` | local: Mailpit `localhost:1025`. Required in prod (no mail config → server does not start) |
 | `AUTH_MAIL_FROM` | `noreply@mirattic.com` |
+| `SYNC_CLIENT_SECRET_HASH` / `FLOW_CLIENT_SECRET_HASH` | none — required in prod; `{bcrypt}` hash, see `clients.md` |

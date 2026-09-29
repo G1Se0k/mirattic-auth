@@ -28,8 +28,7 @@ Sync temporarily accepts:
 Both map to same UID.
 
 ### C. Client Cutover
-- desktop login → Auth
-- extension login → Auth
+- extension login → Auth (client `mirattic-sync`, see `clients.md`; desktop is not served)
 - new accounts created only in Auth
 
 ### D. Remove Legacy Auth

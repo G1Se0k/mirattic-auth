@@ -1,10 +1,7 @@
 # OAuth 2.0 / OpenID Connect
 
 ## Public Clients
-Use Authorization Code + PKCE for:
-- desktop
-- browser extension
-- SPA/web where appropriate
+Use Authorization Code + PKCE for every client (see `clients.md`).
 
 Never use Resource Owner Password Credentials.
 
@@ -41,9 +38,12 @@ Minimum:
 }
 ```
 
-Optional:
-- `name`
-- `email`
+By granted scope (ID token and `/userinfo`):
+- `profile` → `name` (display name)
+- `email` → `email`, `email_verified` (always `false` until email verification exists — products must not
+  trust it for account linking)
+
+`/userinfo` reads the account live; ID token claims are a snapshot from issuance.
 
 Do not put product-specific data in ID tokens.
 
@@ -55,24 +55,8 @@ Initial:
 - `offline_access`
 
 ## Clients
-Examples:
-- `mirattic-sync-desktop`
-- `mirattic-sync-extension`
-- `mirattic-flow-web`
-
-Each client defines:
-- exact redirect URIs
-- allowed grant types
-- allowed scopes
-- public/confidential type
-
-## Desktop
-Prefer system-browser login.
-
-## Extension
-Use PKCE.
-Do not store passwords.
-Verify current browser policy before deciding refresh-token storage.
+Registered clients, redirect URIs and per-client settings: `clients.md`.
+Desktop app is not served.
 
 ## SSO
 SSO comes from the Auth browser session.

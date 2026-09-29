@@ -4,7 +4,9 @@ import static org.springframework.security.config.Customizer.withDefaults;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
+import org.springframework.boot.security.oauth2.server.authorization.autoconfigure.servlet.OAuth2AuthorizationServerProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -20,7 +22,12 @@ import org.springframework.security.oauth2.server.authorization.JdbcOAuth2Author
 import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationConsentService;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
+import org.springframework.security.oauth2.core.OAuth2ErrorCodes;
+import org.springframework.security.oauth2.core.oidc.OidcUserInfo;
+import org.springframework.security.oauth2.core.oidc.endpoint.OidcParameterNames;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
+import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
+import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
@@ -32,13 +39,17 @@ class SecurityConfig {
 	/** OAuth2/OIDC endpoints. Same as Spring Boot's default authorization-server chain. */
 	@Bean
 	@Order(1)
-	SecurityFilterChain authorizationServerChain(HttpSecurity http) throws Exception {
+	SecurityFilterChain authorizationServerChain(HttpSecurity http, AccountClaims accountClaims) throws Exception {
 		MediaTypeRequestMatcher html = new MediaTypeRequestMatcher(MediaType.TEXT_HTML);
 		html.setIgnoredMediaTypes(Set.of(MediaType.ALL));
 		return http
 				.oauth2AuthorizationServer(as -> {
 					http.securityMatcher(as.getEndpointsMatcher());
-					as.oidc(withDefaults());
+					// UserInfo reads the account live (ID token claims are a login-time snapshot), limited to
+					// the presented access token's scopes (a refresh may have narrowed them).
+					as.oidc(o -> o.userInfoEndpoint(u -> u.userInfoMapper(ctx -> new OidcUserInfo(
+							accountClaims.forActive(ctx.getAuthorization().getPrincipalName(),
+									ctx.getAccessToken().getScopes(), OAuth2ErrorCodes.INVALID_TOKEN)))));
 				})
 				.authorizeHttpRequests(a -> a.anyRequest().authenticated())
 				.oauth2ResourceServer(r -> r.jwt(withDefaults()))
@@ -89,9 +100,32 @@ class SecurityConfig {
 		};
 	}
 
+	/**
+	 * Every JWT (access / ID token) is minted only for an ACTIVE account. This is the one place all
+	 * grants pass through, so a disabled/deleted user can neither exchange a code (e.g. from a
+	 * still-open SSO session) nor refresh. ID tokens also get name/email per granted scope.
+	 */
 	@Bean
-	OAuth2AuthorizationService authorizationService(JdbcOperations jdbc, RegisteredClientRepository clients) {
-		return new JdbcOAuth2AuthorizationService(jdbc, clients);
+	OAuth2TokenCustomizer<JwtEncodingContext> accountClaimsCustomizer(AccountClaims accountClaims) {
+		return context -> {
+			Map<String, Object> claims = accountClaims.forActive(context.getPrincipal().getName(),
+					context.getAuthorizedScopes(), OAuth2ErrorCodes.INVALID_GRANT);
+			if (OidcParameterNames.ID_TOKEN.equals(context.getTokenType().getValue())) {
+				context.getClaims().claims(c -> c.putAll(claims));
+			}
+		};
+	}
+
+	/** Refresh tokens are stored hashed, which only works with rotation (see HashedTokenAuthorizationService). */
+	@Bean
+	OAuth2AuthorizationService authorizationService(JdbcOperations jdbc, RegisteredClientRepository clients,
+			OAuth2AuthorizationServerProperties properties) {
+		properties.getClient().forEach((name, client) -> {
+			if (client.getToken().isReuseRefreshTokens()) {
+				throw new IllegalStateException("Client '" + name + "' must set token.reuse-refresh-tokens: false");
+			}
+		});
+		return new HashedTokenAuthorizationService(new JdbcOAuth2AuthorizationService(jdbc, clients));
 	}
 
 	@Bean

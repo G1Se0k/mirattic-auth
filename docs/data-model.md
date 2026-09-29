@@ -50,6 +50,10 @@ enabled
 ## Refresh / Authorization State
 Prefer Spring Authorization Server's authorization model unless a concrete need requires custom tables.
 
+Stored via `JdbcOAuth2AuthorizationService` wrapped by `HashedTokenAuthorizationService`:
+every token value column (code, access, refresh, ID token) holds `sha256:<hex>`, never the raw value.
+Requires refresh rotation (`reuse-refresh-tokens: false`; enforced at startup).
+
 Requirements:
 - rotation
 - revocation

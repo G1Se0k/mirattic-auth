@@ -8,16 +8,16 @@ spring:
   security:
     oauth2:
       authorizationserver:
+        # Same clients as prod, dev redirect URIs only (lists replace, not merge). docs/clients.md
         client:
-          dev:
+          sync:
             registration:
-              client-id: mirattic-dev
-              client-authentication-methods: [none]
-              # No refresh_token: SAS issues none to public clients by default (Phase 2 decision).
-              authorization-grant-types: [authorization_code]
-              redirect-uris: [http://127.0.0.1:8081/callback]
-              scopes: [openid, profile, email]
-            require-proof-key: true
+              client-secret: "{noop}dev-sync-secret"
+              redirect-uris: [http://127.0.0.1:8080/auth/callback]
+          flow:
+            registration:
+              client-secret: "{noop}dev-flow-secret"
+              redirect-uris: [http://127.0.0.1:3000/auth/callback]
 
 auth:
   signing-key:

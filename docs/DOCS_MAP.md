@@ -3,6 +3,7 @@
 - `PLAN.md` — product scope
 - `architecture.md` — boundaries/components
 - `oauth-oidc.md` — standard auth flows
+- `clients.md` — registered clients, redirect URIs
 - `data-model.md` — identity schema
 - `api.md` — account API
 - `security.md` — security requirements

@@ -10,8 +10,38 @@ spring:
     oauth2:
       authorizationserver:
         issuer: ${AUTH_ISSUER:http://localhost:9000}
-        # Clients: dev client in application-local.yml. Sync/Flow clients are added once
-        # redirect URIs are decided. Without any client the server does not start.
+        # Registered clients: docs/clients.md. Dev redirect URIs live in application-local.yml.
+        client:
+          sync:
+            registration:
+              client-id: mirattic-sync
+              # BCrypt hash only ({bcrypt}$2...). The raw secret lives in the product backend. No default.
+              client-secret: ${SYNC_CLIENT_SECRET_HASH}
+              client-authentication-methods: [client_secret_basic]
+              authorization-grant-types: [authorization_code, refresh_token]
+              redirect-uris: [https://sync.mirattic.com/auth/callback]
+              scopes: [openid, profile, email]
+            require-proof-key: true
+            token:
+              access-token-time-to-live: 15m
+              refresh-token-time-to-live: 30d
+              # Rotation: every refresh returns a new refresh token; the old one stops working.
+              reuse-refresh-tokens: false
+          flow:
+            registration:
+              client-id: mirattic-flow
+              # BCrypt hash only ({bcrypt}$2...). The raw secret lives in the product backend. No default.
+              client-secret: ${FLOW_CLIENT_SECRET_HASH}
+              client-authentication-methods: [client_secret_basic]
+              authorization-grant-types: [authorization_code, refresh_token]
+              redirect-uris: [https://flow.mirattic.com/auth/callback]
+              scopes: [openid, profile, email]
+            require-proof-key: true
+            token:
+              access-token-time-to-live: 15m
+              refresh-token-time-to-live: 30d
+              # Rotation: every refresh returns a new refresh token; the old one stops working.
+              reuse-refresh-tokens: false
   autoconfigure:
     exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
 

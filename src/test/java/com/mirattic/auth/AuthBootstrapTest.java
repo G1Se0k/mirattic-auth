@@ -5,11 +5,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.hasKey;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.net.URI;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -46,12 +48,26 @@ class AuthBootstrapTest extends IntegrationTest {
 	void healthIsPublicAndAuthorizeSendsBrowsersToLogin() throws Exception {
 		mvc.perform(get("/actuator/health")).andExpect(status().isOk());
 		// Authorization params must be in the query string for GET.
-		mvc.perform(get("/oauth2/authorize?response_type=code&client_id=mirattic-dev"
-						+ "&redirect_uri=http://127.0.0.1:8081/callback&scope=openid"
+		mvc.perform(get("/oauth2/authorize?response_type=code&client_id=mirattic-sync"
+						+ "&redirect_uri=http://127.0.0.1:8080/auth/callback&scope=openid"
 						+ "&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM&code_challenge_method=S256")
 						.accept(MediaType.TEXT_HTML))
 				.andExpect(status().is3xxRedirection())
 				.andExpect(redirectedUrl("/login"));
+	}
+
+	@Test
+	void unregisteredRedirectUriIsRejectedWithoutRedirecting() throws Exception {
+		// Prod URI is not registered under the local profile; path and host must match exactly.
+		// (127.0.0.1 with another port DOES match: loopback rule, dev-only — docs/clients.md.)
+		for (String redirect : new String[] {"https://sync.mirattic.com/auth/callback",
+				"http://127.0.0.1:8080/auth/other", "https://evil.example/auth/callback"}) {
+			mvc.perform(get(URI.create("/oauth2/authorize?response_type=code&client_id=mirattic-sync&scope=openid"
+							+ "&redirect_uri=" + redirect
+							+ "&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM&code_challenge_method=S256"))
+							.with(user("11111111-1111-1111-1111-111111111111")))
+					.andExpect(status().isBadRequest());
+		}
 	}
 
 	@Test
