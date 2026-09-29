@@ -43,6 +43,17 @@ to the previous image, keeps 5 tagged images). The deploy job runs only when the
 4. Host Caddy: add the `deploy/Caddyfile` block (`auth.mirattic.com → 127.0.0.1:8091`); DNS via Cloudflare.
 5. Push to `main` (or rerun the workflow) → deployed.
 
+### Setup status (2026-09-29)
+- [x] repo cloned on host (`~/Documents/mirattic-auth`, host's own GitHub key)
+- [x] GitHub secrets `DEPLOY_SSH_KEY` (same key as Sync's CI), `DEPLOY_KNOWN_HOSTS` (scanned, matched local known_hosts)
+- [x] first `deploy.sh` run on host: `deploy/.env` + `deploy/client-secrets.txt` generated (0600)
+- [x] host Caddy: `auth.mirattic.com` block added (backup `/opt/homebrew/etc/Caddyfile.before-auth-*`),
+      Let's Encrypt cert obtained; Sync / Flow unaffected. DNS already proxied by Cloudflare.
+- [x] CI test job green on GitHub
+- [ ] `MAIL_*` in host `deploy/.env` (no SMTP provider exists on the host yet)
+- [ ] repo variable `DEPLOY_ENABLED=true` → first deploy
+- [ ] raw client secrets → Sync / Flow server env (Phase 3 / 4), then delete `client-secrets.txt`
+
 ### Backups
 `deploy.sh` installs launchd agent `com.mirattic.auth.backup` (daily 04:30, deploy fails if it can't):
 `deploy/backup.sh` → `~/mirattic-auth-backups/` (0700): MySQL dump + signing key, 7 days retention.

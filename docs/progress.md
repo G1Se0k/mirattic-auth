@@ -165,5 +165,5 @@ Not changed: Sync / Flow code (user request: do not touch yet).
 - Sync access-token `iss` is `mirattic`; Auth issuer is the URL — dual acceptance must handle both.
 
 ## Next Task
-Waiting for approval to change Sync code (`migration.md` "Sync-side Work List" 1–5).
-Deploy: one-time host / GitHub setup in `deployment.md`, then first deploy of Auth.
+1. SMTP provider for `noreply@mirattic.com` → fill `MAIL_*` on host → `DEPLOY_ENABLED=true` → first deploy (`deployment.md` "Setup status").
+2. Waiting for approval to change Sync code (`migration.md` "Sync-side Work List" 1–5).

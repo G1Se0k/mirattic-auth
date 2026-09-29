@@ -60,6 +60,7 @@ Single source for client IDs and redirect URIs. Config: `src/main/resources/appl
   (scheme/host/path still exact). Affects dev only, since prod has no loopback URIs.
 - Resource servers (Sync/Flow backends) validate `iss` = Auth issuer and `aud` = their own client ID.
 
+Flow prod domain `flow.mirattic.com` confirmed (host Caddy).
+
 ## Open
-- Flow prod domain assumed `flow.mirattic.com` (Flow's `.env.prod.example` still says `flow.example.com`).
 - Sync: decided — extension holds Auth tokens, Sync relays refresh (`migration.md`). Flow: decide in Phase 4.
