@@ -175,8 +175,8 @@ Not changed: Sync / Flow code (user request: do not touch yet).
 - Account deletion: if Flow deleted and then Sync fails, the Auth account stays ACTIVE again (the user is told to
   retry). If Auth itself dies between the fence and the end, the account stays DISABLED (can't sign in) until fixed
   by hand (`UPDATE users SET status='ACTIVE'`, then the user retries).
-- Flow keeps a deleted user's former name inside other people's generated texts (system chat lines about issue
-  changes, comment notifications). Retention decision pending (Codex Sol, 2026-09-29).
+- Flow: generated texts (activity chat lines, comment notifications) created before 2026-09-30 keep a deleted
+  user's former name; newer ones show "탈퇴한 사용자" (user decision 2026-09-30, Flow phase 19).
 - Device list: browsers signed in before 2026-09-29 (Phase 5) show "알 수 없는 브라우저" until they sign in again.
   App logins show the product name only (the token call comes from the product's server, not the device).
 - Linking races with a database deadlock (a first sign-in of the same Kakao account at the same moment) end in a
