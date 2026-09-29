@@ -92,6 +92,16 @@
         </li>
       </ul>
     </section>
+
+    <section id="delete">
+      <h2>탈퇴</h2>
+      <p class="hint">Mirattic 계정과 함께 Mirattic Sync · Mirattic Flow의 데이터가 모두 삭제되며 되돌릴 수 없습니다.
+        Flow에서 혼자 소유한 워크스페이스가 있으면 먼저 소유권을 넘기거나 워크스페이스를 삭제해야 합니다.</p>
+      <form method="post" th:action="@{/account/delete}">
+        <label class="check"><input type="checkbox" name="confirm" value="true" required> 모든 데이터가 삭제되는 것을 확인했습니다</label>
+        <button type="submit" class="danger">탈퇴</button>
+      </form>
+    </section>
   </div>
 </main>
 <footer th:replace="~{fragments :: bottom}"></footer>

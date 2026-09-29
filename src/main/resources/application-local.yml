@@ -24,3 +24,6 @@ spring:
 auth:
   signing-key:
     generate-if-missing: true
+  account-deletion:
+    flow-url: http://127.0.0.1:3000/api/internal/account-deletion
+    sync-url: http://127.0.0.1:8080/api/internal/account-deletion

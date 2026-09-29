@@ -6,16 +6,25 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
-/** Stand-in for Kakao's and Naver's token and user-info endpoints (JDK HTTP server, one per test JVM). */
+/**
+ * Stand-in for Kakao's and Naver's token and user-info endpoints, and for the products' account-deletion endpoints
+ * (JDK HTTP server, one per test JVM).
+ */
 final class SocialStub {
 
 	private static final HttpServer SERVER;
 	/** code → user-info JSON; the access token is "at-" + code. */
 	private static final Map<String, String> PROFILES = new ConcurrentHashMap<>();
+	/** Product ("flow" | "sync") → the answer its deletion endpoint gives: status and body. */
+	static final Map<String, Map.Entry<Integer, String>> DELETION = new ConcurrentHashMap<>();
+	/** Deletion orders received, in order: product + " " + bearer token. */
+	static final List<String> DELETIONS = new CopyOnWriteArrayList<>();
 
 	static {
 		try {
@@ -39,6 +48,19 @@ final class SocialStub {
 				String profile = PROFILES.get(auth.replace("Bearer at-", ""));
 				send(ex, profile == null ? 401 : 200, profile == null ? "{}" : profile);
 			});
+			for (String product : new String[] {"flow", "sync"}) {
+				SERVER.createContext("/" + product + "/delete", ex -> {
+					DELETIONS.add(product + " " + String.valueOf(ex.getRequestHeaders().getFirst("Authorization"))
+							.replace("Bearer ", ""));
+					Map.Entry<Integer, String> answer = DELETION.getOrDefault(product, Map.entry(204, ""));
+					if (answer.getKey() == 204) {
+						ex.sendResponseHeaders(204, -1);
+						ex.close();
+					} else {
+						send(ex, answer.getKey(), answer.getValue());
+					}
+				});
+			}
 			SERVER.start();
 		} catch (IOException e) {
 			throw new IllegalStateException(e);

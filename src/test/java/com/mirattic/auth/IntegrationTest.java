@@ -65,6 +65,8 @@ public abstract class IntegrationTest {
 			registry.add(prefix + ".token-uri", () -> SocialStub.url("/token"));
 			registry.add(prefix + ".user-info-uri", () -> SocialStub.url("/me"));
 		}
+		registry.add("auth.account-deletion.flow-url", () -> SocialStub.url("/flow/delete"));
+		registry.add("auth.account-deletion.sync-url", () -> SocialStub.url("/sync/delete"));
 		// Every test logs in from 127.0.0.1; the limiter itself is covered by AuthRateLimitFilterTest.
 		registry.add("auth.rate-limit-per-minute", () -> "100000");
 	}

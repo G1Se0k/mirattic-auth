@@ -21,6 +21,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -284,6 +285,73 @@ class AccountFlowTest extends IntegrationTest {
 				.digest(sessionId(laptop).getBytes(StandardCharsets.UTF_8)));
 		mvc.perform(post("/account/devices/end").with(csrf()).cookie(laptop).param("id", laptopId));
 		mvc.perform(get("/account").cookie(laptop)).andExpect(status().isOk());
+	}
+
+	@Test
+	void deletingTheAccountDeletesProductDataFirstThenEverythingThatSignsIn() throws Exception {
+		SocialStub.DELETION.clear();
+		String email = email();
+		String uid = signup(email, "password-1", "Del");
+		Cookie session = login(email, "password-1");
+		Cookie other = login(email, "password-1");
+		String refresh = JsonPath.read(exchange(authorize(session)), "$.refresh_token");
+		SocialStub.DELETIONS.clear();
+
+		mvc.perform(post("/account/delete").with(csrf()).cookie(session).param("confirm", "true"))
+				.andExpect(redirectedUrl("/login?deleted"));
+
+		// Flow first (it may refuse), then Sync; each gets its own one-minute order for this user.
+		assertThat(SocialStub.DELETIONS).hasSize(2);
+		assertThat(SocialStub.DELETIONS.get(0)).startsWith("flow ");
+		assertThat(SocialStub.DELETIONS.get(1)).startsWith("sync ");
+		String order = claims(SocialStub.DELETIONS.get(0).substring(5));
+		assertThat((String) JsonPath.read(order, "$.sub")).isEqualTo(uid);
+		assertThat((String) JsonPath.read(order, "$.aud")).isEqualTo("mirattic-flow");
+		assertThat((String) JsonPath.read(order, "$.purpose")).isEqualTo("account_deletion");
+		assertThat(order).doesNotContain("scope"); // never usable as an access token
+		assertThat(((Number) JsonPath.read(order, "$.exp")).longValue() - ((Number) JsonPath.read(order, "$.iat")).longValue())
+				.isEqualTo(60);
+		assertThat((String) JsonPath.read(claims(SocialStub.DELETIONS.get(1).substring(5)), "$.aud"))
+				.isEqualTo("mirattic-sync");
+
+		assertThat(jdbc.queryForObject("SELECT status FROM users WHERE id = ?", String.class, uid)).isEqualTo("DELETED");
+		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM user_identities WHERE user_id = ?", Integer.class, uid)).isZero();
+		mvc.perform(get("/account").cookie(session)).andExpect(redirectedUrl("/login"));
+		mvc.perform(get("/account").cookie(other)).andExpect(redirectedUrl("/login"));
+		assertThat(refresh(refresh)).contains("invalid_grant");
+		loginFails(email, "password-1");
+		// The email is free again: a new, unrelated account.
+		assertThat(signup(email, "password-1", "New")).isNotEqualTo(uid);
+	}
+
+	@Test
+	void aProductThatRefusesOrFailsStopsTheDeletion() throws Exception {
+		String email = email();
+		String uid = signup(email, "password-1", "Keep");
+		Cookie session = login(email, "password-1");
+		try {
+			SocialStub.DELETION.put("flow", Map.entry(409, "{\"message\":\"혼자 소유한 워크스페이스가 있습니다.\"}"));
+			SocialStub.DELETIONS.clear();
+			mvc.perform(post("/account/delete").with(csrf()).cookie(session).param("confirm", "true"))
+					.andExpect(status().isOk())
+					.andExpect(content().string(containsString("Mirattic Flow에서 먼저 정리할 것이 있습니다: 혼자 소유한 워크스페이스가 있습니다.")));
+			assertThat(SocialStub.DELETIONS).hasSize(1); // Sync untouched
+
+			SocialStub.DELETION.put("flow", Map.entry(204, ""));
+			SocialStub.DELETION.put("sync", Map.entry(500, "{}"));
+			mvc.perform(post("/account/delete").with(csrf()).cookie(session).param("confirm", "true"))
+					.andExpect(content().string(containsString("Mirattic Sync에 연결하지 못해")));
+		} finally {
+			SocialStub.DELETION.clear();
+		}
+		assertThat(jdbc.queryForObject("SELECT status FROM users WHERE id = ?", String.class, uid)).isEqualTo("ACTIVE");
+		mvc.perform(get("/account").cookie(session)).andExpect(status().isOk());
+
+		// No confirmation: nothing is asked of the products.
+		SocialStub.DELETIONS.clear();
+		mvc.perform(post("/account/delete").with(csrf()).cookie(session))
+				.andExpect(content().string(containsString("탈퇴 확인에 체크해주세요")));
+		assertThat(SocialStub.DELETIONS).isEmpty();
 	}
 
 	/** Spring Session's cookie is the base64 of the session id. */

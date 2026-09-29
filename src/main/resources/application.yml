@@ -98,6 +98,10 @@ auth:
   rate-limit-per-minute: 20
   mail:
     from: ${AUTH_MAIL_FROM:noreply@mirattic.com}
+  # Where Auth orders a product to delete a Mirattic account's data (AccountDeletion, Auth-signed JWT).
+  account-deletion:
+    flow-url: ${FLOW_ACCOUNT_DELETION_URL:https://flow.mirattic.com/api/internal/account-deletion}
+    sync-url: ${SYNC_ACCOUNT_DELETION_URL:https://sync.mirattic.com/api/internal/account-deletion}
   signing-key:
     path: ${AUTH_SIGNING_KEY_PATH:./.local/signing-key.jwk.json}
     # true only with a persistent key location (local profile, prod volume); see docs/deployment.md

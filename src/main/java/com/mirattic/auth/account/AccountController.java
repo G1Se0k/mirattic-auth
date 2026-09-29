@@ -10,6 +10,7 @@ import java.util.Set;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
+import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.security.web.savedrequest.HttpSessionRequestCache;
 import org.springframework.security.web.savedrequest.RequestCache;
 import org.springframework.security.web.savedrequest.SavedRequest;
@@ -27,15 +28,19 @@ class AccountController {
 	private final AccountService accounts;
 	private final RegisteredClientRepository clients;
 	private final Devices devices;
+	private final AccountDeletion deletion;
+	private final SecurityContextLogoutHandler logout = new SecurityContextLogoutHandler();
 	private static final Set<String> PROVIDERS = Set.of("kakao", "naver");
 	private static final Duration FRESH = Duration.ofMinutes(10);
 
 	private final RequestCache requestCache = new HttpSessionRequestCache();
 
-	AccountController(AccountService accounts, RegisteredClientRepository clients, Devices devices) {
+	AccountController(AccountService accounts, RegisteredClientRepository clients, Devices devices,
+			AccountDeletion deletion) {
 		this.accounts = accounts;
 		this.clients = clients;
 		this.devices = devices;
+		this.deletion = deletion;
 	}
 
 	@GetMapping("/")
@@ -162,7 +167,26 @@ class AccountController {
 		}
 	}
 
-	/** Changing how the account signs in needs a sign-in in the last 10 minutes. */
+	/** Deletes the Mirattic account, Sync and Flow data included (AccountDeletion). */
+	@PostMapping("/account/delete")
+	String delete(Authentication auth, @RequestParam(defaultValue = "false") boolean confirm, HttpServletRequest request,
+			HttpServletResponse response, Model model) {
+		if (!confirm) {
+			return accountWithError(auth, request.getSession(), model, new AccountException("탈퇴 확인에 체크해주세요."));
+		}
+		if (stale(auth)) {
+			return "redirect:/login?reauth";
+		}
+		try {
+			deletion.delete(auth.getName(), request.getSession().getId());
+		} catch (AccountException e) {
+			return accountWithError(auth, request.getSession(), model, e);
+		}
+		logout.logout(request, response, auth);
+		return "redirect:/login?deleted";
+	}
+
+	/** Changing how the account signs in, or deleting it, needs a sign-in in the last 10 minutes. */
 	private static boolean stale(Authentication auth) {
 		return AccountService.signInTime(auth).isBefore(Instant.now().minus(FRESH));
 	}

@@ -43,11 +43,12 @@ Create the central Mirattic Auth project and finalize the first deployable authe
 - Validation: Codex Sol 11 passes (FAIL ×10 → all findings fixed → PASS); Auth 51, Flow 108, Sync 57 tests; local
   browser E2E of the whole Flow flow.
 
-### Phase 5 — Account Center (in progress; user decisions 2026-09-29)
+### Phase 5 — Account Center (done 2026-09-29; user decisions the same day)
 - sessions + session revoke: device list with per-device sign-out (`api.md` "Devices") — done
 - identity management: link / unlink Kakao and Naver only (adding email + password later) — done
-- account deletion: Auth asks Sync and Flow to delete their data (Auth-signed back-channel), deletes only if both
-  succeed; Flow may refuse (workspace owner) — after linking
+- account deletion: Auth orders Flow then Sync to delete their data (Auth-signed back-channel JWT, `api.md`
+  "Account Deletion"), deletes only if both succeed; Flow may refuse (workspace owner) — done
+- Validation: Codex quota exhausted → Claude reviewed directly (not a PASS). Auth 60, Flow 117, Sync 63 tests.
 
 ### Phase 6 — External Providers
 - Google
@@ -166,6 +167,12 @@ Not changed: Sync / Flow code (user request: do not touch yet).
 - Social accounts can't be linked to an existing account yet (a first Kakao / Naver sign-in always makes a new one).
 - No email verification (decided 2026-09-29): anyone can sign up with an email they don't own (the owner can take it over via reset). Mitigated by one signup per network per day.
 - Shared networks (office / campus / mobile CGNAT) get one signup per day in total.
+- Account deletion: if Flow deleted and then Sync fails, the Auth account stays (the user is told to retry); a Flow
+  sign-in before the retry makes a fresh, empty Flow profile, deleted by the retry.
+- Device list: browsers signed in before 2026-09-29 (Phase 5) show "알 수 없는 브라우저" until they sign in again.
+  App logins show the product name only (the token call comes from the product's server, not the device).
+- Linking races with a database deadlock (a first sign-in of the same Kakao account at the same moment) end in a
+  500 instead of `link_error=taken`; nothing is half-written.
 - Disabling a user does not end an existing Auth browser session; `/oauth2/authorize` still issues a code, but the code can no longer be exchanged (ACTIVE check at token issuance). Session cleanup belongs to the disable/delete feature (Phase 5).
 - SAS schema `timestamp` columns: MySQL 2038 limit.
 - Single signing key; rotation (previous public key in JWKS) is Phase 7.
@@ -174,7 +181,8 @@ Not changed: Sync / Flow code (user request: do not touch yet).
 - Sync's one pre-migration test account (production, 2026-09-28) lost its legacy login; signing in with a Mirattic account of any email creates a separate Sync profile.
 
 ## Next Task
-1. Phase 5 — account deletion with Sync / Flow data (see Phase 5 above). Design first.
+1. Phase 5 follow-ups (optional): adding email + password to a Kakao / Naver-only account (needs a decision on email
+   ownership, no verification today); a Codex Sol review of Phase 5 when quota returns.
    (The Flow membership / chat-subscription bugs were fixed in Flow 2026-09-29, `c8f8e47`, `3d4027a`; Claude review.)
 2. Kakao / Naver consoles: rename the apps to "Mirattic", privacy URL https://auth.mirattic.com/privacy; then Naver
    review (Kakao needs none for nickname only). Kakao unlink webhook: decided not to use (2026-09-29, user).

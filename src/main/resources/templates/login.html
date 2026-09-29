@@ -8,6 +8,7 @@
     <h1 class="sr-only">로그인</h1>
     <p class="lede context" th:if="${clientName}">로그인하면 <strong th:text="${clientName}">Mirattic Sync</strong>로 돌아갑니다.</p>
 
+    <p class="note ok" th:if="${param.deleted}">탈퇴했습니다. 그동안 이용해주셔서 감사합니다.</p>
     <p class="note ok" th:if="${param.reauth}">보안을 위해 한 번 더 로그인해주세요.</p>
     <p class="note error" th:if="${param.error}">이메일 또는 비밀번호가 맞지 않습니다.</p>
     <p class="note error" th:if="${param.social_error}">카카오·네이버 로그인을 마치지 못했습니다. 다시 시도해주세요.</p>

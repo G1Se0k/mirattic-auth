@@ -43,11 +43,16 @@ Server-rendered on `/account` ("로그인 방법"). Rules in `security.md` "Acco
   `/account?link_error=taken|exists|failed`. Stale sign-in (> 10 min): `/login?reauth`.
 - `POST /account/unlink/{kakao|naver}` (session + CSRF): `/account?unlinked`; refused for the last method.
 
-## Account Deletion
-`DELETE /api/account`
-
-Initial behavior:
-- disable/delete Auth account
-- revoke sessions
-- notify/queue deletion event for product services
-- each product applies its own data-deletion policy
+## Account Deletion (Phase 5, `AccountDeletion`)
+`POST /account/delete` (session + CSRF, `confirm=true`, sign-in in the last 10 minutes else `/login?reauth`).
+1. Flow, then Sync, are ordered to delete the user's data: `POST {product}/api/internal/account-deletion` with
+   `Authorization: Bearer <order>`. The order is a JWT signed with Auth's key (RS256, JWKS `kid`): `iss` = Auth,
+   `aud` = the product's client id, `sub` = UID, `purpose` = `account_deletion`, `exp` = 60 s, no `scope`.
+   Products accept only that purpose there (not an access token, not an ID token — the browser holds Flow's ID token
+   as `id_token_hint`), and never accept an order as an access token (no `scope`).
+   Product answers: 204 deleted or nothing to delete (idempotent); 409 `{"message": "..."}` refused (Flow: a
+   workspace the user alone owns) → shown on the account page, nothing deleted; anything else → "try again".
+   URLs: `auth.account-deletion.flow-url` / `sync-url` (env `FLOW_ACCOUNT_DELETION_URL`, `SYNC_ACCOUNT_DELETION_URL`).
+2. Then, in one transaction: `users.status = DELETED`, name "탈퇴한 사용자" (the row stays so the UID is never reused);
+   `user_identities`, `password_reset_tokens`, consents deleted. Then every `oauth2_authorization` and every browser
+   session ends; this browser is logged out → `/login?deleted`. The email / Kakao / Naver account can sign up anew.
