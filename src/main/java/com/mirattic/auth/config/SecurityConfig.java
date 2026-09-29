@@ -55,7 +55,8 @@ class SecurityConfig {
 	/** OAuth2/OIDC endpoints. Same as Spring Boot's default authorization-server chain. */
 	@Bean
 	@Order(1)
-	SecurityFilterChain authorizationServerChain(HttpSecurity http, AccountClaims accountClaims) throws Exception {
+	SecurityFilterChain authorizationServerChain(HttpSecurity http, AccountClaims accountClaims, JdbcOperations jdbc)
+			throws Exception {
 		MediaTypeRequestMatcher html = new MediaTypeRequestMatcher(MediaType.TEXT_HTML);
 		html.setIgnoredMediaTypes(Set.of(MediaType.ALL));
 		return http
@@ -69,6 +70,7 @@ class SecurityConfig {
 				})
 				.authorizeHttpRequests(a -> a.anyRequest().authenticated())
 				.addFilterAfter(new FreshLoginFilter(Clock.systemUTC()), SecurityContextHolderFilter.class)
+				.addFilterAfter(new ActiveAccountFilter(jdbc), SecurityContextHolderFilter.class)
 				.oauth2ResourceServer(r -> r.jwt(withDefaults()))
 				.exceptionHandling(e -> e.defaultAuthenticationEntryPointFor(
 						new LoginUrlAuthenticationEntryPoint("/login"), html))
@@ -79,8 +81,10 @@ class SecurityConfig {
 	@Bean
 	@Order(2)
 	SecurityFilterChain defaultChain(HttpSecurity http, SocialLogin socialLogin,
-			ClientRegistrationRepository registrations, Devices devices, SecurityEvents events) throws Exception {
+			ClientRegistrationRepository registrations, Devices devices, SecurityEvents events, JdbcOperations jdbc)
+			throws Exception {
 		return http
+				.addFilterAfter(new ActiveAccountFilter(jdbc), SecurityContextHolderFilter.class)
 				.authorizeHttpRequests(a -> a
 						.requestMatchers("/actuator/health", "/privacy", "/login", "/signup", "/password/reset",
 								"/password/reset/confirm", "/error").permitAll()

@@ -376,11 +376,13 @@ class AccountFlowTest extends IntegrationTest {
 		mvc.perform(get("/account").cookie(session)).andExpect(status().isOk());
 		login(email, "password-1");
 
-		// One deletion of an account at a time: a second one while the first runs is refused.
+		// One deletion of an account at a time: while one runs (DISABLED), another browser's request is signed out
+		// before it can start a second (ActiveAccountFilter; AccountDeletion also refuses a non-ACTIVE account).
+		Cookie other = login(email, "password-1");
 		jdbc.update("UPDATE users SET status = 'DISABLED' WHERE id = ?", uid);
 		SocialStub.DELETIONS.clear();
-		mvc.perform(post("/account/delete").with(csrf()).cookie(session).param("confirm", "true"))
-				.andExpect(content().string(containsString("이미 탈퇴를 처리하고 있습니다")));
+		mvc.perform(post("/account/delete").with(csrf()).cookie(other).param("confirm", "true"))
+				.andExpect(redirectedUrl("/login"));
 		assertThat(SocialStub.DELETIONS).isEmpty();
 		jdbc.update("UPDATE users SET status = 'ACTIVE' WHERE id = ?", uid);
 
@@ -422,6 +424,26 @@ class AccountFlowTest extends IntegrationTest {
 				.andExpect(content().string(containsString("잘못된 비밀번호로 로그인 시도")))
 				.andExpect(content().string(containsString("Firefox · Windows")));
 		assertThat(phone).isNotNull();
+	}
+
+	@Test
+	void aSessionOfAnAccountThatIsNoLongerActiveIsSignedOut() throws Exception {
+		String email = email();
+		String uid = signup(email, "password-1", "Fence");
+		Cookie session = login(email, "password-1");
+		mvc.perform(get("/account").cookie(session)).andExpect(status().isOk());
+		// e.g. a sign-in that finished just as the account was fenced for deletion
+		jdbc.update("UPDATE users SET status = 'DISABLED' WHERE id = ?", uid);
+		mvc.perform(get("/account").cookie(session)).andExpect(redirectedUrl("/login"));
+		jdbc.update("UPDATE users SET status = 'ACTIVE' WHERE id = ?", uid);
+		// Signed out for good, not just for that request; SSO asks for a sign-in too.
+		mvc.perform(get("/account").cookie(session)).andExpect(redirectedUrl("/login"));
+		Cookie sso = login(email, "password-1");
+		jdbc.update("UPDATE users SET status = 'DELETED' WHERE id = ?", uid);
+		mvc.perform(get(java.net.URI.create("/oauth2/authorize?response_type=code&client_id=" + CLIENT + "&redirect_uri="
+						+ REDIRECT + "&scope=openid&state=s&code_challenge=" + s256(VERIFIER) + "&code_challenge_method=S256"))
+						.cookie(sso).accept(org.springframework.http.MediaType.TEXT_HTML))
+				.andExpect(redirectedUrl("/login"));
 	}
 
 	/** Spring Session's cookie is the base64 of the session id. */

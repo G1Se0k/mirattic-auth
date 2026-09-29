@@ -71,26 +71,42 @@ public class AccountDeletion {
 	 * caller ends the current browser session; every other one and every app login is ended here.
 	 * <p>
 	 * First the account is fenced (ACTIVE → DISABLED): while the products delete, nobody can sign in, exchange a code
-	 * or refresh (tokens are minted for ACTIVE accounts only), or finish a link — so no product profile is made again
-	 * behind a product's 204. Only one deletion of an account runs at a time. On a product failure the fence is lifted.
+	 * or refresh (tokens are minted for ACTIVE accounts only), or finish a link, and sessions of a non-ACTIVE account
+	 * are signed out on their next request (ActiveAccountFilter). Only one deletion of an account runs at a time.
+	 * A login or token already under way when the fence goes up is the products' part: Flow records the deletion time
+	 * for the UID (also when it had no profile) and creates no profile for a login older than that (`withdrawals`).
+	 * Sync: see docs/progress.md (Known Issues).
+	 * Any failure before the final commit lifts the fence (back to ACTIVE; the ended app logins stay ended).
 	 */
 	public void delete(String userId, String currentSessionId) {
 		if (jdbc.update("UPDATE users SET status = 'DISABLED', updated_at = NOW(6) WHERE id = ? AND status = 'ACTIVE'",
 				userId) == 0) {
 			throw new AccountException("이미 탈퇴를 처리하고 있습니다.");
 		}
-		accounts.endSessions(userId, currentSessionId); // app logins end now: no refresh during the deletion
 		try {
+			accounts.endSessions(userId, currentSessionId); // app logins end now: no refresh during the deletion
 			for (Product p : products) {
 				deleteIn(p, userId);
 			}
+			deleteHere(userId);
 		} catch (RuntimeException e) {
 			jdbc.update("UPDATE users SET status = 'ACTIVE', updated_at = NOW(6) WHERE id = ? AND status = 'DISABLED'",
 					userId);
-			throw e;
+			throw e instanceof AccountException ? e
+					: new AccountException("탈퇴를 마치지 못했습니다. 잠시 후 다시 시도해주세요.");
 		}
+		// Deleted. Sessions that appeared meanwhile end too (and could do nothing: ActiveAccountFilter).
+		try {
+			accounts.endSessions(userId, currentSessionId);
+		} catch (RuntimeException e) {
+			log.warn("Sessions of a deleted account not all ended: {}", e.getClass().getSimpleName());
+		}
+	}
+
+	/** The Auth part, one transaction. The row stays (DELETED) so the UID is never reused. */
+	private void deleteHere(String userId) {
 		tx.executeWithoutResult(s -> {
-			// The row stays (DELETED) so the UID is never reused; everything that signs in or identifies goes.
+			// Everything that signs in or identifies goes.
 			jdbc.update("UPDATE users SET status = 'DELETED', display_name = '탈퇴한 사용자', updated_at = NOW(6) "
 					+ "WHERE id = ?", userId);
 			jdbc.update("DELETE FROM user_identities WHERE user_id = ?", userId);
@@ -98,7 +114,6 @@ public class AccountDeletion {
 			jdbc.update("DELETE FROM oauth2_authorization_consent WHERE principal_name = ?", userId);
 			jdbc.update("DELETE FROM security_events WHERE user_id = ?", userId);
 		});
-		accounts.endSessions(userId, currentSessionId);
 	}
 
 	private void deleteIn(Product p, String userId) {
