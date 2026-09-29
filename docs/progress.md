@@ -1,6 +1,6 @@
 # Current Phase
 Auth is live at https://auth.mirattic.com (2026-09-29).
-Phase 3 — Mirattic Sync Migration (done 2026-09-29: Sync work list 1–5 and 7, legacy Sync auth removed; import skipped, no real accounts)
+Phase 4 — Mirattic Flow Migration (done 2026-09-29: Kakao / Naver in Auth, Flow on Auth tokens in HttpOnly cookies, legacy Flow auth removed; Flow test data reset). Phase 3 (Sync) done earlier the same day.
 
 ## Goal
 Create the central Mirattic Auth project and finalize the first deployable authentication architecture.
@@ -34,10 +34,14 @@ Create the central Mirattic Auth project and finalize the first deployable authe
 - extension cutover (desktop not served)
 - legacy auth removal
 
-### Phase 4 — Mirattic Flow Migration
-- OIDC integration
-- duplicate-account policy
-- SSO verification
+### Phase 4 — Mirattic Flow Migration (done 2026-09-29, `migration.md` "Flow")
+- Auth: Kakao / Naver sign-in (`SocialLogin`, `SocialReauth`), `prompt=login` bound to the demanding request,
+  `auth_time` in access tokens, OIDC RP-initiated logout with Flow's post-logout URI.
+- Flow: confidential client, HttpOnly cookies, CSRF header, WebSocket cookie auth + close at token exp / logout /
+  withdrawal, withdrawal only through Auth re-authentication, enrollment boundary (`auth_time`) and withdrawal
+  record so old logins never reach a re-joined user; legacy auth removed.
+- Validation: Codex Sol 11 passes (FAIL ×10 → all findings fixed → PASS); Auth 51, Flow 108, Sync 57 tests; local
+  browser E2E of the whole Flow flow.
 
 ### Phase 5 — Account Center
 - sessions
@@ -155,6 +159,9 @@ Not changed: Sync / Flow code (user request: do not touch yet).
   - by design: loopback redirect port (see security.md).
 
 ## Known Issues
+- Same-browser race: a login callback already in flight when the user logs out of Flow can finish afterwards and sign
+  that browser back in (needs the same user within a fraction of a second; not fixed).
+- Social accounts can't be linked to an existing account yet (a first Kakao / Naver sign-in always makes a new one).
 - No email verification (decided 2026-09-29): anyone can sign up with an email they don't own (the owner can take it over via reset). Mitigated by one signup per network per day.
 - Shared networks (office / campus / mobile CGNAT) get one signup per day in total.
 - Disabling a user does not end an existing Auth browser session; `/oauth2/authorize` still issues a code, but the code can no longer be exchanged (ACTIVE check at token issuance). Session cleanup belongs to the disable/delete feature (Phase 5).
@@ -163,9 +170,11 @@ Not changed: Sync / Flow code (user request: do not touch yet).
 - Flow uses KAKAO / NAVER, not in Auth's LOCAL/GOOGLE/APPLE plan — needs decision.
 - Flow numeric IDs need a UUID mapping (Flow keeps `users.id`, adds Mirattic UID column) — Flow change, deferred.
 - Sync's one pre-migration test account (production, 2026-09-28) lost its legacy login; signing in with a Mirattic account of any email creates a separate Sync profile.
-- `prompt=login` re-auth window is 60 s (Auth) / 5 min (Sync `auth_time` check); a user who signed in within 60 s is not asked again.
 
 ## Next Task
-1. Phase 4 — Flow migration decisions (KAKAO/NAVER, numeric IDs).
-2. Optional: DMARC `p=quarantine` after a few days of inbox delivery; rotate the Resend API key if desired
-   (it was shared in chat).
+1. Flow (pre-existing, found by Codex during Phase 4, not caused by it): removing a workspace member keeps their
+   project access; removing a project member keeps their open chat subscription. Fix in Flow.
+2. Auth privacy policy page (`/privacy`) before submitting the Kakao / Naver apps for review; rename the apps to
+   "Mirattic" in their consoles.
+3. Phase 5 — Account center (Mirattic account deletion, linking a second sign-in method).
+4. Optional: DMARC `p=quarantine`; rotate the Resend API key (shared in chat).

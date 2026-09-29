@@ -4,10 +4,13 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
+import java.io.Serializable;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.TreeMap;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.FactorGrantedAuthority;
@@ -16,16 +19,23 @@ import org.springframework.security.web.authentication.logout.SecurityContextLog
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * OIDC `prompt=login` on /oauth2/authorize: a sign-in (password or Kakao / Naver) older than {@link #FRESH} is
- * ended, so the request goes through the login page again (and is replayed from there, then fresh). Used before destructive actions,
- * e.g. Sync account deletion; the client still checks the ID token's `auth_time` itself.
+ * OIDC `prompt=login` on /oauth2/authorize: the user must sign in again (password or Kakao / Naver), however
+ * recent the current Auth session is. The existing sign-in is ended and the request goes through the login page.
+ * Only the replay of <em>that</em> request (same parameters: state, PKCE challenge, ...) after a sign-in newer
+ * than the demand passes, once — so an abandoned demand can't be satisfied later by an ordinary sign-in.
+ * Used before destructive actions (Sync account deletion, Flow withdrawal) and after a product logout.
+ * Clients still check the ID token's `auth_time` themselves.
  */
 final class FreshLoginFilter extends OncePerRequestFilter {
 
-	static final Duration FRESH = Duration.ofSeconds(60);
+	/** The pending demand: which request, since when. Survives the sign-in (session attributes are migrated). */
+	static final String REAUTH_PENDING = FreshLoginFilter.class.getName() + ".pending";
 
-	private final Clock clock;
+	record Pending(String query, Instant demandedAt) implements Serializable {
+	}
+
 	private final SecurityContextLogoutHandler logout = new SecurityContextLogoutHandler();
+	private final Clock clock;
 
 	FreshLoginFilter(Clock clock) {
 		this.clock = clock;
@@ -33,23 +43,55 @@ final class FreshLoginFilter extends OncePerRequestFilter {
 
 	@Override
 	protected boolean shouldNotFilter(HttpServletRequest request) {
-		return !"/oauth2/authorize".equals(request.getServletPath()) || !"login".equals(request.getParameter("prompt"));
+		return !(request.getContextPath() + "/oauth2/authorize").equals(request.getRequestURI())
+				|| !asksForLogin(request.getParameter("prompt"));
+	}
+
+	/** OIDC `prompt` is a space-separated list ("login consent" asks for a login too). */
+	static boolean asksForLogin(String prompt) {
+		return prompt != null && Arrays.asList(prompt.trim().split("\\s+")).contains("login");
 	}
 
 	@Override
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
 			throws ServletException, IOException {
 		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-		if (auth != null && !(auth instanceof AnonymousAuthenticationToken)) {
-			// Latest factor (password, or Kakao / Naver sign-in), as SAS computes the ID token's auth_time.
-			Instant signedIn = auth.getAuthorities().stream()
-					.filter(a -> a instanceof FactorGrantedAuthority)
-					.map(a -> ((FactorGrantedAuthority) a).getIssuedAt())
-					.max(Instant::compareTo).orElse(Instant.EPOCH);
-			if (signedIn.isBefore(clock.instant().minus(FRESH))) {
+		boolean signedIn = auth != null && !(auth instanceof AnonymousAuthenticationToken);
+		HttpSession session = request.getSession(false);
+		Pending pending = session == null ? null : (Pending) session.getAttribute(REAUTH_PENDING);
+		String query = canonical(request);
+		if (signedIn && pending != null && pending.query().equals(query)
+				&& !signInTime(auth).isBefore(pending.demandedAt())) {
+			// The replay of this very demand, after a new sign-in: let it through once.
+			session.removeAttribute(REAUTH_PENDING);
+		} else {
+			if (signedIn) {
 				logout.logout(request, response, auth);
 			}
+			request.getSession(true).setAttribute(REAUTH_PENDING, new Pending(query, clock.instant()));
 		}
 		chain.doFilter(request, response);
+	}
+
+	/**
+	 * The request's parameters, decoded and sorted: the replay after sign-in re-encodes the query string, and Spring
+	 * Security's saved-request redirect adds a `continue` parameter.
+	 */
+	static String canonical(HttpServletRequest request) {
+		StringBuilder out = new StringBuilder();
+		new TreeMap<>(request.getParameterMap()).forEach((name, values) -> {
+			if (!"continue".equals(name)) {
+				out.append(name).append('=').append(String.join(",", values)).append('&');
+			}
+		});
+		return out.toString();
+	}
+
+	/** Latest sign-in factor (password, Kakao / Naver), as SAS computes the ID token's auth_time. */
+	private static Instant signInTime(Authentication auth) {
+		return auth.getAuthorities().stream()
+				.filter(a -> a instanceof FactorGrantedAuthority)
+				.map(a -> ((FactorGrantedAuthority) a).getIssuedAt())
+				.max(Instant::compareTo).orElse(Instant.EPOCH);
 	}
 }

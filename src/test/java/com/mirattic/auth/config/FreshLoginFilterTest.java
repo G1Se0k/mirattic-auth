@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockFilterChain;
@@ -18,6 +19,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 class FreshLoginFilterTest {
 
 	private static final Instant NOW = Instant.parse("2026-09-29T00:00:00Z");
+	private static final String A = "response_type=code&state=a&prompt=login";
+	private static final String B = "response_type=code&state=b&prompt=login";
 	private final FreshLoginFilter filter = new FreshLoginFilter(Clock.fixed(NOW, ZoneOffset.UTC));
 
 	@AfterEach
@@ -26,39 +29,78 @@ class FreshLoginFilterTest {
 	}
 
 	@Test
-	void promptLoginEndsAnOldPasswordSignIn() throws Exception {
-		MockHttpSession session = signedIn(NOW.minusSeconds(61));
-		filter.doFilter(authorize(session, "login"), new MockHttpServletResponse(), new MockFilterChain());
+	void promptLoginEndsEvenAJustStartedSignInAndRemembersThisDemand() throws Exception {
+		MockHttpSession session = signedIn(NOW);
+		MockHttpServletRequest request = authorize(session, A);
+		filter.doFilter(request, new MockHttpServletResponse(), new MockFilterChain());
 		assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+		assertThat(session.isInvalid()).isTrue();
+		assertThat(request.getSession(false).getAttribute(FreshLoginFilter.REAUTH_PENDING))
+				.isEqualTo(new FreshLoginFilter.Pending(FreshLoginFilter.canonical(request), NOW));
+	}
+
+	@Test
+	void theReplayOfThatDemandAfterANewSignInPassesOnceOnly() throws Exception {
+		MockHttpSession session = signedIn(NOW.plusSeconds(10));
+		session.setAttribute(FreshLoginFilter.REAUTH_PENDING, new FreshLoginFilter.Pending(FreshLoginFilter.canonical(authorize(new MockHttpSession(), A)), NOW));
+		filter.doFilter(authorize(session, A), new MockHttpServletResponse(), new MockFilterChain());
+		assertThat(session.isInvalid()).isFalse();
+		assertThat(session.getAttribute(FreshLoginFilter.REAUTH_PENDING)).isNull();
+
+		// The same request again later is a new demand: signed out again.
+		filter.doFilter(authorize(session, A), new MockHttpServletResponse(), new MockFilterChain());
 		assertThat(session.isInvalid()).isTrue();
 	}
 
 	@Test
-	void freshSignInOrNoPromptIsKept() throws Exception {
-		MockHttpSession fresh = signedIn(NOW.minusSeconds(30));
-		filter.doFilter(authorize(fresh, "login"), new MockHttpServletResponse(), new MockFilterChain());
-		assertThat(fresh.isInvalid()).isFalse();
+	void anAbandonedDemandDoesNotLetAnotherRequestThrough() throws Exception {
+		// Demand A was abandoned; the user signed in some other way afterwards; now demand B arrives.
+		MockHttpSession session = signedIn(NOW.plusSeconds(10));
+		session.setAttribute(FreshLoginFilter.REAUTH_PENDING, new FreshLoginFilter.Pending(FreshLoginFilter.canonical(authorize(new MockHttpSession(), A)), NOW));
+		filter.doFilter(authorize(session, B), new MockHttpServletResponse(), new MockFilterChain());
+		assertThat(session.isInvalid()).isTrue();
+	}
 
-		MockHttpSession old = signedIn(NOW.minusSeconds(3600));
-		filter.doFilter(authorize(old, null), new MockHttpServletResponse(), new MockFilterChain());
-		assertThat(old.isInvalid()).isFalse();
+	@Test
+	void aSignInFromBeforeTheDemandDoesNotSatisfyIt() throws Exception {
+		MockHttpSession session = signedIn(NOW.minusSeconds(1));
+		session.setAttribute(FreshLoginFilter.REAUTH_PENDING, new FreshLoginFilter.Pending(FreshLoginFilter.canonical(authorize(new MockHttpSession(), A)), NOW));
+		filter.doFilter(authorize(session, A), new MockHttpServletResponse(), new MockFilterChain());
+		assertThat(session.isInvalid()).isTrue();
+	}
+
+	@Test
+	void promptIsASpaceSeparatedList() {
+		assertThat(FreshLoginFilter.asksForLogin("login")).isTrue();
+		assertThat(FreshLoginFilter.asksForLogin("consent login")).isTrue();
+		assertThat(FreshLoginFilter.asksForLogin(" login  consent ")).isTrue();
+		assertThat(FreshLoginFilter.asksForLogin("consent")).isFalse();
+		assertThat(FreshLoginFilter.asksForLogin("loginx")).isFalse();
+		assertThat(FreshLoginFilter.asksForLogin(null)).isFalse();
+	}
+
+	@Test
+	void noPromptLeavesTheSessionAlone() throws Exception {
+		MockHttpSession session = signedIn(NOW.minusSeconds(3600));
+		filter.doFilter(authorize(session, "response_type=code&state=c"), new MockHttpServletResponse(), new MockFilterChain());
+		assertThat(session.isInvalid()).isFalse();
 		assertThat(SecurityContextHolder.getContext().getAuthentication()).isNotNull();
 	}
 
 	private static MockHttpSession signedIn(Instant at) {
 		SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken("uid", null,
-				java.util.List.of(FactorGrantedAuthority.withAuthority(FactorGrantedAuthority.PASSWORD_AUTHORITY)
-						.issuedAt(at).build())));
+				List.of(FactorGrantedAuthority.withAuthority(FactorGrantedAuthority.PASSWORD_AUTHORITY).issuedAt(at).build())));
 		return new MockHttpSession();
 	}
 
-	private static MockHttpServletRequest authorize(MockHttpSession session, String prompt) {
+	private static MockHttpServletRequest authorize(MockHttpSession session, String query) {
 		MockHttpServletRequest req = new MockHttpServletRequest("GET", "/oauth2/authorize");
-		req.setServletPath("/oauth2/authorize");
-		req.setSession(session);
-		if (prompt != null) {
-			req.setParameter("prompt", prompt);
+		req.setQueryString(query);
+		for (String pair : query.split("&")) {
+			String[] kv = pair.split("=", 2);
+			req.addParameter(kv[0], kv[1]);
 		}
+		req.setSession(session);
 		return req;
 	}
 }

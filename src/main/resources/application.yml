@@ -66,6 +66,8 @@ spring:
               client-authentication-methods: [client_secret_basic]
               authorization-grant-types: [authorization_code, refresh_token]
               redirect-uris: [https://flow.mirattic.com/auth/callback]
+              # OIDC RP-initiated logout (/connect/logout): where Auth sends the browser after ending its session.
+              post-logout-redirect-uris: ["https://flow.mirattic.com/login?logout=success"]
               scopes: [openid, profile, email]
             require-proof-key: true
             token:

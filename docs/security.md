@@ -33,8 +33,9 @@ Use `kid` for key rotation.
 - loopback redirects (`http://127.0.0.1:<port>/...`) match any port (Spring default, RFC 8252); dev-only since prod registers none (`clients.md`)
 
 ## Auth Web Session
-- `prompt=login` on `/oauth2/authorize` ends a password sign-in older than 60 s (re-authentication before
-  destructive client actions, `oauth-oidc.md`). Clients verify the ID token `auth_time` themselves.
+- `prompt=login` on `/oauth2/authorize` always ends the current sign-in; only the replay of that request after a
+  newer sign-in passes (re-authentication before destructive client actions, `oauth-oidc.md`).
+- Access tokens carry `auth_time`; products bound sessions by it (Flow withdrawal / re-join).
 - Stored in MySQL (Spring Session JDBC, cookie `SESSION`): survives restarts / deploys.
 - Password change ends the user's other Auth sessions (keeps the current one); password reset ends all.
 - Secure (prod: `SERVER_SERVLET_SESSION_COOKIE_SECURE=true`)

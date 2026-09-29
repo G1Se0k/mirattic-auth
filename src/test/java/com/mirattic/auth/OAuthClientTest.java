@@ -2,6 +2,7 @@ package com.mirattic.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -10,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.jayway.jsonpath.JsonPath;
 import java.net.URI;
 import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.UUID;
@@ -24,6 +26,8 @@ import org.springframework.security.oauth2.server.authorization.OAuth2Authorizat
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
+import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -55,11 +59,23 @@ class OAuthClientTest extends IntegrationTest {
 	}
 
 	@Test
-	void promptLoginRightAfterSigningInIssuesACodeWithAuthTime() throws Exception {
-		// A sign-in within FreshLoginFilter.FRESH passes (older ones are sent to /login: FreshLoginFilterTest).
-		String location = mvc.perform(get(URI.create("/oauth2/authorize?response_type=code&client_id=" + CLIENT
-						+ "&redirect_uri=" + REDIRECT + "&scope=openid&state=st1&prompt=login"
-						+ "&code_challenge=" + s256(VERIFIER) + "&code_challenge_method=S256")).cookie(newUser().browser()))
+	void promptLoginAlwaysAsksAgainThenTheReplayGetsACodeWithAFreshAuthTime() throws Exception {
+		Session s = newUser();
+		URI authorize = URI.create("/oauth2/authorize?response_type=code&client_id=" + CLIENT + "&redirect_uri=" + REDIRECT
+				+ "&scope=openid&state=st1&prompt=login&code_challenge=" + s256(VERIFIER) + "&code_challenge_method=S256");
+		// Signed in a moment ago, still asked again.
+		MockHttpServletResponse asked = mvc.perform(get(authorize).cookie(s.browser()).accept(MediaType.TEXT_HTML))
+				.andReturn().getResponse();
+		assertThat(asked.getRedirectedUrl()).endsWith("/login");
+		Cookie pending = asked.getCookie("SESSION");
+
+		MockHttpServletResponse signedIn = mvc.perform(post("/login").param("username", s.email())
+				.param("password", "password-1").with(csrf()).cookie(pending)).andReturn().getResponse();
+		assertThat(signedIn.getRedirectedUrl()).contains("/oauth2/authorize").contains("prompt=login");
+		Cookie session = signedIn.getCookie("SESSION") != null ? signedIn.getCookie("SESSION") : pending;
+
+		// The replay passes once and issues the code.
+		String location = mvc.perform(get(URI.create(signedIn.getRedirectedUrl())).cookie(session))
 				.andReturn().getResponse().getRedirectedUrl();
 		assertThat(location).startsWith(REDIRECT + "?code=");
 		String code = URLDecoder.decode(UriComponentsBuilder.fromUriString(location).build().getQueryParams()
@@ -67,6 +83,45 @@ class OAuthClientTest extends IntegrationTest {
 		String idToken = JsonPath.read(exchange(code), "$.id_token");
 		long authTime = ((Number) JsonPath.read(claims(idToken), "$.auth_time")).longValue();
 		assertThat(authTime).isCloseTo(System.currentTimeMillis() / 1000, org.assertj.core.data.Offset.offset(30L));
+	}
+
+	@Test
+	void accessTokensCarryTheLoginsAuthTimeAlsoAfterARefresh() throws Exception {
+		String first = exchange(authorize(newUser().browser(), "openid profile"));
+		long idAuthTime = ((Number) JsonPath.read(claims(JsonPath.read(first, "$.id_token")), "$.auth_time")).longValue();
+		long accessAuthTime = ((Number) JsonPath.read(claims(JsonPath.read(first, "$.access_token")), "$.auth_time")).longValue();
+		assertThat(accessAuthTime).isEqualTo(idAuthTime);
+
+		Thread.sleep(1100); // a refresh a second later still reports the original login time
+		String refreshed = refresh(JsonPath.read(first, "$.refresh_token"));
+		assertThat(((Number) JsonPath.read(claims(JsonPath.read(refreshed, "$.access_token")), "$.auth_time")).longValue())
+				.isEqualTo(idAuthTime);
+	}
+
+	@Test
+	void rpInitiatedLogoutEndsTheSsoSessionEvenAfterTheRefreshTokenWasRevoked() throws Exception {
+		Session s = newUser();
+		String tokens = exchange(authorize(s.browser(), "openid profile"));
+		String idToken = JsonPath.read(tokens, "$.id_token");
+		String refreshToken = JsonPath.read(tokens, "$.refresh_token");
+		// The product first revokes its refresh token (server side), then sends the browser to /connect/logout.
+		mvc.perform(post("/oauth2/revoke").with(httpBasic(CLIENT, SECRET)).contentType(MediaType.APPLICATION_FORM_URLENCODED)
+				.content("token=" + refreshToken + "&token_type_hint=refresh_token")).andExpect(status().isOk());
+
+		String loggedOut = "http://127.0.0.1:8080/auth/logged-out";
+		// SAS reads GET parameters from the raw query string (MockMvc .param() does not put them there).
+		String location = mvc.perform(get(URI.create("/connect/logout?id_token_hint=" + idToken
+						+ "&post_logout_redirect_uri=" + URLEncoder.encode(loggedOut, StandardCharsets.UTF_8)))
+						.cookie(s.browser()))
+				.andExpect(status().is3xxRedirection()).andReturn().getResponse().getRedirectedUrl();
+		assertThat(location).startsWith(loggedOut);
+		// The Auth session is gone: the next sign-in asks for the password again.
+		mvc.perform(get("/account").cookie(s.browser())).andExpect(status().is3xxRedirection());
+		mvc.perform(get(URI.create("/oauth2/authorize?response_type=code&client_id=" + CLIENT + "&redirect_uri=" + REDIRECT
+						+ "&scope=openid&state=st1&code_challenge=" + s256(VERIFIER) + "&code_challenge_method=S256"))
+						.cookie(s.browser()).accept(MediaType.TEXT_HTML))
+				.andExpect(status().is3xxRedirection())
+				.andExpect(result -> assertThat(result.getResponse().getRedirectedUrl()).endsWith("/login"));
 	}
 
 	@Test

@@ -76,7 +76,20 @@ callback `https://auth.mirattic.com/login/oauth2/code/{kakao|naver}` (must be re
 - Failure (provider error, disabled account) → `/login?social_error`.
 
 ## Re-authentication (`prompt=login`)
-`/oauth2/authorize?...&prompt=login` with a sign-in (password or Kakao / Naver) older than 60 s ends that Auth session, so the
-login page asks for the password again and then replays the request (`FreshLoginFilter`). A fresh sign-in
-passes straight through. The ID token's `auth_time` is the sign-in time (Spring Security's factor), so clients check freshness themselves — they must not rely on the redirect alone.
-Used by: Sync account deletion (`auth_time` within 5 min, same `sub`; Sync `docs/protocol/rest.md`).
+`/oauth2/authorize?...&prompt=...login...` (a space-separated list) always ends the current Auth sign-in,
+however recent, and sends the user through the login page (`FreshLoginFilter`). Only the replay of that very
+request (same parameters) after a sign-in newer than the demand passes, once; an abandoned demand can't be
+satisfied later. With Kakao / Naver the demand is forwarded (`SocialReauth`: Kakao `prompt=login`, Naver
+`auth_type=reauthenticate`) so the provider asks for credentials too. Clients still check `auth_time` themselves.
+Used by: Sync account deletion (`auth_time` ≤ 5 min, same `sub`), Flow withdrawal (same user, `auth_time` after the
+withdrawal started), Flow's first login after a logout / withdrawal in that browser.
+
+## `auth_time` in access tokens
+Access tokens carry `auth_time` too (the sign-in behind them; a refresh keeps the original login's time). Products
+use it as a boundary: Flow rejects tokens of logins older than the one that created (or re-created after a
+withdrawal) the Flow user, so an old login elsewhere can't reach a re-joined account.
+
+## Logout (OIDC RP-Initiated Logout)
+`/connect/logout` (POST form, `id_token_hint` + registered `post_logout_redirect_uri` + `state`) ends the Auth
+browser session. Flow sends the browser there after its own logout / withdrawal (post-logout URI
+`https://flow.mirattic.com/login?logout=success`), so the next person on a shared browser is asked to sign in.

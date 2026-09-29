@@ -63,4 +63,5 @@ Single source for client IDs and redirect URIs. Config: `src/main/resources/appl
 Flow prod domain `flow.mirattic.com` confirmed (host Caddy).
 
 ## Open
-- Sync: decided — extension holds Auth tokens, Sync relays refresh (`migration.md`). Flow: decide in Phase 4.
+- Sync: extension holds Auth tokens, Sync relays refresh. Flow: browser holds Auth tokens in HttpOnly cookies set
+  by the Flow backend, which relays refresh (`migration.md`). Both done.

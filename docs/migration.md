@@ -81,12 +81,21 @@ Keep product profile/friend/room/chat data.
    read live from Auth UserInfo. Sync account deletion re-authenticates at Auth (`prompt=login`, `auth_time`
    ≤ 5 min, same `sub`); deletes the Sync profile only, the Mirattic account stays.
 
-## Flow
-If Flow has separate accounts:
-- inspect UID model
-- identify overlapping real users
-- never auto-merge by email
-- provide explicit linking/migration UX when necessary
+## Flow (decided and done 2026-09-29, Phase 4)
+- Kakao / Naver moved into Auth (`oauth-oidc.md` "Social Login"); Flow no longer talks to them.
+- Existing Flow accounts were test data (5 users, 1 workspace): **not imported**; production Flow DB backed up,
+  then recreated. No linking UX needed.
+- Flow keeps its numeric `users.id` (every FK uses it) and adds `mirattic_uid` (unique) = Auth `sub`.
+- Same model as Sync (option B), adapted for a web app: the Flow backend is the confidential client
+  (`/auth/start`, `/auth/callback`), the browser holds Auth's access / refresh token only in HttpOnly cookies
+  (`flow_at` 15 min path `/`, `flow_rt` 30 d path `/api/auth`), the backend validates the access token via JWKS
+  (aud `mirattic-flow`, access tokens only) and relays refresh / revoke. Cookie CSRF: unsafe `/api` requests need
+  `X-Requested-With: flow`. WebSockets authenticate with the handshake cookie and are closed at token `exp`.
+- Removed from Flow: signup, login, Kakao / Naver clients, refresh tokens, passwords, JWT secret, email / password
+  change. Flow account deletion ("탈퇴") deletes Flow data only (the Mirattic account stays) and only through an Auth
+  re-authentication (`prompt=login`, same user, `auth_time` after the start); it then ends the Auth session.
+- Flow users record the `auth_time` of the login that created them, and each withdrawal (UID hashed): tokens of older
+  logins are rejected and a re-join needs a login newer than the withdrawal (`oauth-oidc.md`).
 
 ## Password Hashes
 If compatible, migrate hashes directly.

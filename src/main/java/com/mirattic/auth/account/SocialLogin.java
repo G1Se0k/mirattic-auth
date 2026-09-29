@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.jdbc.core.JdbcOperations;
 import org.springframework.security.core.authority.FactorGrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -50,7 +51,14 @@ public class SocialLogin implements OAuth2UserService<OAuth2UserRequest, OAuth2U
 		if (p.subject() == null || p.subject().isBlank()) {
 			throw failure("no provider user id");
 		}
-		String uid = tx.execute(s -> findOrCreate(p));
+		String uid;
+		try {
+			uid = tx.execute(s -> findOrCreate(p));
+		} catch (DuplicateKeyException | PessimisticLockingFailureException e) {
+			// A concurrent first sign-in of the same provider account won (MySQL reports a duplicate key or a
+			// deadlock). Ours rolled back; this time the identity is there.
+			uid = tx.execute(s -> findOrCreate(p));
+		}
 		String status = jdbc.queryForObject("SELECT status FROM users WHERE id = ?", String.class, uid);
 		if (!"ACTIVE".equals(status)) {
 			throw failure("account not active");
@@ -75,14 +83,9 @@ public class SocialLogin implements OAuth2UserService<OAuth2UserRequest, OAuth2U
 		String uid = UUID.randomUUID().toString();
 		jdbc.update("INSERT INTO users (id, display_name, status, created_at, updated_at) "
 				+ "VALUES (?, ?, 'ACTIVE', NOW(6), NOW(6))", uid, displayName(p));
-		try {
-			jdbc.update("INSERT INTO user_identities "
-					+ "(id, user_id, provider, subject, email, password_hash, created_at, updated_at) "
-					+ "VALUES (UUID(), ?, ?, ?, ?, NULL, NOW(6), NOW(6))", uid, p.provider(), p.subject(), p.email());
-		} catch (DuplicateKeyException e) {
-			// A concurrent first sign-in of the same provider account won: roll back ours, use theirs.
-			throw failure("sign-in in progress, try again");
-		}
+		jdbc.update("INSERT INTO user_identities "
+				+ "(id, user_id, provider, subject, email, password_hash, created_at, updated_at) "
+				+ "VALUES (UUID(), ?, ?, ?, ?, NULL, NOW(6), NOW(6))", uid, p.provider(), p.subject(), p.email());
 		return uid;
 	}
 

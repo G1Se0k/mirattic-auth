@@ -14,10 +14,12 @@ spring:
             registration:
               client-secret: "{noop}dev-sync-secret"
               redirect-uris: [http://127.0.0.1:8080/auth/callback]
+              post-logout-redirect-uris: ["http://127.0.0.1:8080/auth/logged-out"]
           flow:
             registration:
               client-secret: "{noop}dev-flow-secret"
               redirect-uris: [http://127.0.0.1:3000/auth/callback]
+              post-logout-redirect-uris: ["http://127.0.0.1:3000/login?logout=success"]
 
 auth:
   signing-key:
