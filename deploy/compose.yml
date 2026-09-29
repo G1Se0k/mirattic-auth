@@ -44,6 +44,11 @@ services:
       FLOW_CLIENT_SECRET_HASH: ${FLOW_CLIENT_SECRET_HASH}
       # Resend verified domain is mail.mirattic.com (docs/deployment.md)
       AUTH_MAIL_FROM: noreply@mail.mirattic.com
+      # Kakao / Naver sign-in apps (the ones the old Flow login used).
+      KAKAO_CLIENT_ID: ${KAKAO_CLIENT_ID}
+      KAKAO_CLIENT_SECRET: ${KAKAO_CLIENT_SECRET}
+      NAVER_CLIENT_ID: ${NAVER_CLIENT_ID}
+      NAVER_CLIENT_SECRET: ${NAVER_CLIENT_SECRET}
       SPRING_MAIL_HOST: ${MAIL_HOST}
       SPRING_MAIL_PORT: ${MAIL_PORT}
       SPRING_MAIL_USERNAME: ${MAIL_USERNAME}

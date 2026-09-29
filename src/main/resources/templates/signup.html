@@ -9,6 +9,8 @@
 
     <p class="note error" th:if="${error}" th:text="${error}"></p>
 
+    <div th:replace="~{fragments :: social}"></div>
+
     <form method="post" th:action="@{/signup}">
       <div class="field">
         <label for="email">이메일</label>

@@ -275,3 +275,32 @@ main.landing { margin-top: 9vh; }
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+
+/* Kakao / Naver buttons: brand colours fixed in both themes (their guidelines). */
+.social { margin-bottom: 18px; }
+.social-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 44px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 15px;
+}
+.social-button:hover { text-decoration: none; opacity: 0.9; }
+.social-button svg { width: 18px; height: 18px; }
+.social-button.kakao { background: #FEE500; color: rgb(0 0 0 / 0.85); }
+.social-button.kakao svg { fill: #000; }
+.social-button.naver { background: #03C75A; color: #fff; }
+.social-button.naver svg { width: 14px; height: 14px; fill: #fff; }
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0 0;
+  font-size: 13px;
+  color: var(--ink-faint);
+}
+.divider::before, .divider::after { content: ""; flex: 1; border-top: 1px solid var(--line); }

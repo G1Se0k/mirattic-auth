@@ -1,5 +1,6 @@
 package com.mirattic.auth.config;
 
+import com.mirattic.auth.account.AccountService;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,11 +24,9 @@ class AccountClaims {
 	 * with email. Throws `errorCode` unless the account is ACTIVE.
 	 */
 	Map<String, Object> forActive(String userId, Set<String> scopes, String errorCode) {
-		List<Map<String, Object>> rows = jdbc.queryForList("""
-				SELECT u.status, u.display_name, i.email FROM users u
-				LEFT JOIN user_identities i ON i.user_id = u.id AND i.provider = 'LOCAL'
-				WHERE u.id = ?
-				""", userId);
+		List<Map<String, Object>> rows = jdbc.queryForList(
+				"SELECT u.status, u.display_name, (" + AccountService.CONTACT_EMAIL + ") AS email FROM users u WHERE u.id = ?",
+				userId);
 		if (rows.isEmpty() || !"ACTIVE".equals(rows.getFirst().get("status"))) {
 			throw new OAuth2AuthenticationException(errorCode);
 		}

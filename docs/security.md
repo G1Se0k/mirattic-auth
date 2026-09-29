@@ -72,7 +72,9 @@ Do not unnecessarily reveal whether an email/account exists.
 
 ## Account Linking
 Never auto-merge solely on matching email.
-Explicit linking is the default.
+Explicit linking is the default. Kakao / Naver sign-ins are keyed by the provider's user id only; a first
+sign-in always creates a new account, even when its email equals an existing one (`oauth-oidc.md`).
+Linking a second sign-in method to an existing account is not implemented yet.
 
 ## Never Log
 - passwords

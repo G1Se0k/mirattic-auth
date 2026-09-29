@@ -9,14 +9,17 @@
     <p class="lede context" th:if="${clientName}">로그인하면 <strong th:text="${clientName}">Mirattic Sync</strong>로 돌아갑니다.</p>
 
     <p class="note error" th:if="${param.error}">이메일 또는 비밀번호가 맞지 않습니다.</p>
+    <p class="note error" th:if="${param.social_error}">카카오·네이버 로그인을 마치지 못했습니다. 다시 시도해주세요.</p>
     <p class="note ok" th:if="${param.signup}">가입이 완료되었습니다. 로그인해주세요.</p>
     <p class="note ok" th:if="${param.reset}">비밀번호를 변경했습니다. 새 비밀번호로 로그인해주세요.</p>
     <p class="note ok" th:if="${param.logout}">로그아웃되었습니다.</p>
 
+    <div th:replace="~{fragments :: social}"></div>
+
     <form method="post" th:action="@{/login}">
       <div class="field">
         <label for="username">이메일</label>
-        <input id="username" name="username" type="email" autocomplete="username" required autofocus>
+        <input id="username" name="username" type="email" autocomplete="username" required>
       </div>
       <div class="field">
         <label for="password">비밀번호 <a th:href="@{/password/reset}">비밀번호를 잊으셨나요?</a></label>

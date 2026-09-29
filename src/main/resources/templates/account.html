@@ -15,7 +15,8 @@
     <p class="note ok" th:if="${param.password}">비밀번호를 변경했습니다. 다른 기기와 앱에서는 다시 로그인해야 합니다.</p>
 
     <dl class="facts">
-      <div><dt>이메일</dt><dd th:text="${account.email}">you@example.com</dd></div>
+      <div><dt>이메일</dt><dd th:text="${account.email ?: '-'}">you@example.com</dd></div>
+      <div><dt>로그인 방법</dt><dd th:text="${#strings.listJoin(account.providers.![{'LOCAL':'이메일','KAKAO':'카카오','NAVER':'네이버'}[#this]], ', ')}">이메일</dd></div>
       <div><dt>계정 ID</dt><dd><code th:text="${account.id}">uuid</code></dd></div>
     </dl>
 
@@ -27,7 +28,7 @@
       </form>
     </section>
 
-    <section>
+    <section th:if="${account.hasPassword()}">
       <h2>비밀번호 변경</h2>
       <form method="post" th:action="@{/account/password}">
         <div class="field">

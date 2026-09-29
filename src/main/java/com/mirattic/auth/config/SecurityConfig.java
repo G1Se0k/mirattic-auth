@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import com.mirattic.auth.account.SocialLogin;
 import org.springframework.boot.security.oauth2.server.authorization.autoconfigure.servlet.OAuth2AuthorizationServerProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -66,7 +67,7 @@ class SecurityConfig {
 	/** Browser login (the Auth SSO session) and everything else. */
 	@Bean
 	@Order(2)
-	SecurityFilterChain defaultChain(HttpSecurity http) throws Exception {
+	SecurityFilterChain defaultChain(HttpSecurity http, SocialLogin socialLogin) throws Exception {
 		return http
 				.authorizeHttpRequests(a -> a
 						.requestMatchers("/actuator/health", "/login", "/signup", "/password/reset",
@@ -75,6 +76,9 @@ class SecurityConfig {
 								"/apple-touch-icon.png").permitAll()
 						.anyRequest().authenticated())
 				.formLogin(f -> f.loginPage("/login"))
+				// Kakao / Naver: /oauth2/authorization/{kakao|naver} → provider → /login/oauth2/code/{id}.
+				.oauth2Login(o -> o.loginPage("/login").failureUrl("/login?social_error")
+						.userInfoEndpoint(u -> u.userService(socialLogin)))
 				// Reset links carry a token in the URL; never leak it through Referer.
 				.headers(h -> h.referrerPolicy(r -> r.policy(ReferrerPolicy.NO_REFERRER)))
 				.build();

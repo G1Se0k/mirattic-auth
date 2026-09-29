@@ -13,7 +13,7 @@ updated_at
 ```text
 id UUID PK
 user_id UUID FK
-provider LOCAL | GOOGLE | APPLE
+provider LOCAL | KAKAO | NAVER (GOOGLE | APPLE later)
 subject VARCHAR(...)
 email VARCHAR(...) NULL
 password_hash VARCHAR(...) NULL

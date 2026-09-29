@@ -24,8 +24,16 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AccountService {
 
-	public record Account(String id, String displayName, String email) {
+	/** `email`: the LOCAL identity's, else a Kakao / Naver one's (may be null). `providers`: LOCAL, KAKAO, NAVER. */
+	public record Account(String id, String displayName, String email, List<String> providers) {
+		public boolean hasPassword() {
+			return providers.contains("LOCAL");
+		}
 	}
+
+	/** SQL: the account's contact email (LOCAL first, then the oldest identity that has one), for `u.id`. */
+	public static final String CONTACT_EMAIL = "SELECT i.email FROM user_identities i WHERE i.user_id = u.id "
+			+ "AND i.email IS NOT NULL ORDER BY i.provider = 'LOCAL' DESC, i.created_at LIMIT 1";
 
 	private static final Pattern EMAIL = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
 	private static final SecureRandom RANDOM = new SecureRandom();
@@ -143,10 +151,11 @@ public class AccountService {
 
 	public Account find(String userId) {
 		return jdbc.queryForObject("""
-				SELECT u.id, u.display_name, i.email FROM users u
-				LEFT JOIN user_identities i ON i.user_id = u.id AND i.provider = 'LOCAL'
-				WHERE u.id = ?
-				""", (rs, n) -> new Account(rs.getString(1), rs.getString(2), rs.getString(3)), userId);
+				SELECT u.id, u.display_name, (%s),
+				  (SELECT GROUP_CONCAT(i.provider ORDER BY i.created_at) FROM user_identities i WHERE i.user_id = u.id)
+				FROM users u WHERE u.id = ?
+				""".formatted(CONTACT_EMAIL), (rs, n) -> new Account(rs.getString(1), rs.getString(2), rs.getString(3),
+				rs.getString(4) == null ? List.of() : List.of(rs.getString(4).split(","))), userId);
 	}
 
 	/**

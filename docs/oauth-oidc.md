@@ -62,9 +62,21 @@ Desktop app is not served.
 SSO comes from the Auth browser session.
 Product services do not share their own cookies.
 
+## Social Login (Kakao / Naver)
+Auth is itself an OAuth client of Kakao and Naver (Spring Security `oauth2Login`, `SocialLogin`), so every
+product gets them through the normal Auth login page. Buttons: `/oauth2/authorization/{kakao|naver}`;
+callback `https://auth.mirattic.com/login/oauth2/code/{kakao|naver}` (must be registered in each console).
+- Identity = (`KAKAO`|`NAVER`, provider's stable user id). The first sign-in creates a new Mirattic account
+  (name from the nickname, contact email if the user consented); later sign-ins find it by that pair only.
+- Never matched by email: the same email as a password account is a separate account (`security.md`).
+- No password: the account page hides password change; password reset only concerns LOCAL identities.
+- Not counted against the one-signup-per-network limit (that limit is for LOCAL signups).
+- `email` claim / UserInfo: the LOCAL identity's email, else the social one's; `email_verified` stays false.
+- The sign-in time is the ID token's `auth_time` (authorization-code factor), like a password sign-in.
+- Failure (provider error, disabled account) → `/login?social_error`.
+
 ## Re-authentication (`prompt=login`)
-`/oauth2/authorize?...&prompt=login` with a password sign-in older than 60 s ends that Auth session, so the
+`/oauth2/authorize?...&prompt=login` with a sign-in (password or Kakao / Naver) older than 60 s ends that Auth session, so the
 login page asks for the password again and then replays the request (`FreshLoginFilter`). A fresh sign-in
-passes straight through. The ID token's `auth_time` is the time the password was typed (Spring Security's
-password factor), so clients check freshness themselves — they must not rely on the redirect alone.
+passes straight through. The ID token's `auth_time` is the sign-in time (Spring Security's factor), so clients check freshness themselves — they must not rely on the redirect alone.
 Used by: Sync account deletion (`auth_time` within 5 min, same `sub`; Sync `docs/protocol/rest.md`).

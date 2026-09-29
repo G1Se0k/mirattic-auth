@@ -28,6 +28,10 @@ if [ ! -f .env ]; then
   printf 'MIRATTIC_SYNC_CLIENT_SECRET=%s\nMIRATTIC_FLOW_CLIENT_SECRET=%s\n' "$sync_secret" "$flow_secret" > client-secrets.txt
   echo "Created deploy/.env and deploy/client-secrets.txt. Put the Resend API key in MAIL_PASSWORD, hand out client-secrets.txt, rerun." >&2
 fi
+for key in KAKAO_CLIENT_ID KAKAO_CLIENT_SECRET NAVER_CLIENT_ID NAVER_CLIENT_SECRET; do
+  grep -q "^$key=..*" .env || { echo "deploy/.env: $key empty (Kakao / Naver sign-in). Not deploying." >&2; exit 1; }
+done
+
 if ! grep -q '^MAIL_HOST=..*' .env || ! grep -q '^MAIL_PASSWORD=..*' .env; then
   echo "deploy/.env: MAIL_HOST / MAIL_PASSWORD empty (password reset mail needs SMTP). Not deploying." >&2
   exit 1

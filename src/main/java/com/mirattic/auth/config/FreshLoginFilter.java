@@ -16,8 +16,8 @@ import org.springframework.security.web.authentication.logout.SecurityContextLog
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * OIDC `prompt=login` on /oauth2/authorize: a password sign-in older than {@link #FRESH} is ended, so the request
- * goes through the login page again (and is replayed from there, then fresh). Used before destructive actions,
+ * OIDC `prompt=login` on /oauth2/authorize: a sign-in (password or Kakao / Naver) older than {@link #FRESH} is
+ * ended, so the request goes through the login page again (and is replayed from there, then fresh). Used before destructive actions,
  * e.g. Sync account deletion; the client still checks the ID token's `auth_time` itself.
  */
 final class FreshLoginFilter extends OncePerRequestFilter {
@@ -41,9 +41,9 @@ final class FreshLoginFilter extends OncePerRequestFilter {
 			throws ServletException, IOException {
 		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 		if (auth != null && !(auth instanceof AnonymousAuthenticationToken)) {
+			// Latest factor (password, or Kakao / Naver sign-in), as SAS computes the ID token's auth_time.
 			Instant signedIn = auth.getAuthorities().stream()
-					.filter(a -> a instanceof FactorGrantedAuthority f
-							&& FactorGrantedAuthority.PASSWORD_AUTHORITY.equals(f.getAuthority()))
+					.filter(a -> a instanceof FactorGrantedAuthority)
 					.map(a -> ((FactorGrantedAuthority) a).getIssuedAt())
 					.max(Instant::compareTo).orElse(Instant.EPOCH);
 			if (signedIn.isBefore(clock.instant().minus(FRESH))) {
