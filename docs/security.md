@@ -71,6 +71,13 @@ Do not unnecessarily reveal whether an email/account exists.
 - reset link is in the URL, so all pages send `Referrer-Policy: no-referrer`
 - mail failure is logged by exception type only (message body contains the token)
 
+## Kakao Unlink Webhook
+- `/social/kakao/unlink` (Kakao "연결 끊기 알림"): `Authorization: KakaoAK {Admin key}` compared in constant time;
+  the raw `user_id` must be numeric. The request only appends a CRC-framed record to a journal on the persistent
+  volume (fsync incl. directory) and answers 200 (Kakao: 200 within 3 s); a worker signs the account out everywhere
+  (authorizations + sessions) and keeps failures until they succeed. The account and its Kakao identity stay.
+- Signup-per-network rows are HMAC-SHA256 with a host secret (`SIGNUP_IP_KEY`), not a plain hash of the IP.
+
 ## Account Linking
 Never auto-merge solely on matching email.
 Explicit linking is the default. Kakao / Naver sign-ins are keyed by the provider's user id only; a first

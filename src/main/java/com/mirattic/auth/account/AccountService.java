@@ -1,6 +1,7 @@
 package com.mirattic.auth.account;
 
 import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
@@ -10,7 +11,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.regex.Pattern;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import com.mirattic.auth.config.ClientIp;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Async;
@@ -38,13 +42,21 @@ public class AccountService {
 	private static final Pattern EMAIL = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
 	private static final SecureRandom RANDOM = new SecureRandom();
 
+	private final byte[] ipHashKey;
 	private final JdbcTemplate jdbc;
 	private final PasswordEncoder passwordEncoder;
 	private final PasswordResetMailer mailer;
 	private final FindByIndexNameSessionRepository<? extends Session> sessions;
 
 	AccountService(JdbcTemplate jdbc, PasswordEncoder passwordEncoder, PasswordResetMailer mailer,
-			FindByIndexNameSessionRepository<? extends Session> sessions) {
+			FindByIndexNameSessionRepository<? extends Session> sessions,
+			@Value("${auth.signup-ip-key:}") String signupIpKey) {
+		if (signupIpKey.isBlank()) {
+			this.ipHashKey = new byte[32];
+			RANDOM.nextBytes(ipHashKey);
+		} else {
+			this.ipHashKey = signupIpKey.getBytes(StandardCharsets.UTF_8);
+		}
 		this.jdbc = jdbc;
 		this.passwordEncoder = passwordEncoder;
 		this.mailer = mailer;
@@ -81,7 +93,7 @@ public class AccountService {
 	}
 
 	private void claimSignupSlot(String clientIp) {
-		String ipHash = sha256(String.valueOf(ClientIp.key(clientIp)));
+		String ipHash = ipKeyHash(String.valueOf(ClientIp.key(clientIp)));
 		jdbc.update("INSERT IGNORE INTO signup_ips (ip_hash, last_signup_at) VALUES (?, '1970-01-02')", ipHash);
 		// Row lock: concurrent signups from one network are serialized, so only one gets through.
 		boolean recent = jdbc.queryForObject("SELECT last_signup_at > NOW(6) - INTERVAL 1 DAY FROM signup_ips "
@@ -167,10 +179,24 @@ public class AccountService {
 				+ "WHERE user_id = ? AND provider = 'LOCAL'", passwordEncoder.encode(password), userId);
 		jdbc.update("UPDATE password_reset_tokens SET used_at = NOW(6) WHERE user_id = ? AND used_at IS NULL",
 				userId);
+		endSessions(userId, keepSessionId);
+	}
+
+	/**
+	 * Signs the user out everywhere: every OAuth authorization (refresh tokens of Sync, Flow, ...; their access
+	 * tokens lapse within 15 min) and every Auth browser session except `keepSessionId` (null: all).
+	 */
+	public void endSessions(String userId, String keepSessionId) {
 		jdbc.update("DELETE FROM oauth2_authorization WHERE principal_name = ?", userId);
 		sessions.findByPrincipalName(userId).keySet().stream()
 				.filter(id -> !id.equals(keepSessionId))
 				.forEach(sessions::deleteById);
+	}
+
+	/** The Mirattic UID behind a Kakao / Naver identity, if any. */
+	public java.util.Optional<String> userOfIdentity(String provider, String subject) {
+		return jdbc.queryForList("SELECT user_id FROM user_identities WHERE provider = ? AND subject = ?",
+				String.class, provider, subject).stream().findFirst();
 	}
 
 	/** BCrypt only uses the first 72 bytes, so longer passwords are refused rather than silently cut. */
@@ -196,6 +222,22 @@ public class AccountService {
 		byte[] bytes = new byte[32];
 		RANDOM.nextBytes(bytes);
 		return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+	}
+
+	/**
+	 * Keyed hash of a client network for the signup limit. A plain SHA-256 of an IPv4 address is easy to reverse
+	 * (only 2^32 inputs); an HMAC with a secret key is not. The key (SIGNUP_IP_KEY) lives only in the server's
+	 * environment and must survive restarts, or every deploy would reset the limit; without it (local, tests) a
+	 * random one is used.
+	 */
+	private String ipKeyHash(String networkKey) {
+		try {
+			Mac mac = Mac.getInstance("HmacSHA256");
+			mac.init(new SecretKeySpec(ipHashKey, "HmacSHA256"));
+			return HexFormat.of().formatHex(mac.doFinal(networkKey.getBytes(StandardCharsets.UTF_8)));
+		} catch (GeneralSecurityException e) {
+			throw new IllegalStateException(e);
+		}
 	}
 
 	static String sha256(String value) {

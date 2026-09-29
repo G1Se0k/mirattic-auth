@@ -2,6 +2,7 @@ package com.mirattic.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -34,6 +35,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 class SocialLoginTest extends IntegrationTest {
 
 	@Autowired SocialLogin socialLogin;
+	@Autowired com.mirattic.auth.account.KakaoUnlinkQueue unlinks;
 	@Autowired ClientRegistrationRepository registrations;
 
 	private static String kakao(String id, String email, String nickname) {
@@ -160,6 +162,49 @@ class SocialLoginTest extends IntegrationTest {
 		}
 		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM user_identities WHERE provider = 'KAKAO' AND subject = ?",
 				Integer.class, kakaoId)).isOne();
+	}
+
+	@Test
+	void kakaoUnlinkWebhookSignsTheAccountOutEverywhere() throws Exception {
+		String kakaoId = providerId();
+		SignIn in = signIn("kakao", kakao(kakaoId, null, "끊는사람"), null);
+		String uid = jdbc.queryForObject("SELECT user_id FROM user_identities WHERE provider = 'KAKAO' AND subject = ?",
+				String.class, kakaoId);
+		// A product (Sync) holds a login of this account too.
+		String code = authorize(in.session());
+		exchange(code);
+		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM oauth2_authorization WHERE principal_name = ?",
+				Integer.class, uid)).isPositive();
+
+		// Not Kakao (no or wrong Admin key): refused, nothing happens.
+		mvc.perform(post("/social/kakao/unlink").param("user_id", kakaoId)).andExpect(status().isUnauthorized());
+		mvc.perform(post("/social/kakao/unlink").header("Authorization", "KakaoAK wrong").param("user_id", kakaoId))
+				.andExpect(status().isUnauthorized());
+		mvc.perform(get("/account").cookie(in.session())).andExpect(status().isOk());
+
+		mvc.perform(post("/social/kakao/unlink").header("Authorization", "KakaoAK " + KAKAO_ADMIN_KEY)
+						.param("app_id", "1").param("user_id", kakaoId).param("referrer_type", "UNLINK_FROM_APPS"))
+				.andExpect(status().isOk());
+		unlinks.process(); // the worker (every few seconds in production)
+		mvc.perform(get("/account").cookie(in.session())).andExpect(status().is3xxRedirection()); // signed out
+		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM oauth2_authorization WHERE principal_name = ?",
+				Integer.class, uid)).isZero();
+		// The account and its Kakao identity stay: signing in with Kakao again returns to it.
+		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM user_identities WHERE provider = 'KAKAO' AND subject = ?",
+				Integer.class, kakaoId)).isOne();
+
+		// Unknown Kakao user, or GET: still 200 (Kakao wants 200 whatever happens).
+		mvc.perform(get("/social/kakao/unlink").header("Authorization", "KakaoAK " + KAKAO_ADMIN_KEY)
+				.param("user_id", "999")).andExpect(status().isOk());
+	}
+
+	@Test
+	void privacyPolicyIsPublicAndLinkedFromEveryPage() throws Exception {
+		mvc.perform(get("/privacy")).andExpect(status().isOk())
+				.andExpect(content().string(Matchers.containsString("개인정보처리방침")))
+				.andExpect(content().string(Matchers.containsString("Resend")))
+				.andExpect(content().string(Matchers.containsString("카카오")));
+		mvc.perform(get("/login")).andExpect(content().string(Matchers.containsString("href=\"/privacy\"")));
 	}
 
 	@Test

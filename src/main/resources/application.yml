@@ -92,6 +92,13 @@ server:
         http-only: true
 
 auth:
+  # HMAC key for the signup-per-network hashes (signup_ips). Kept across restarts; random when unset (local, tests).
+  signup-ip-key: ${SIGNUP_IP_KEY:}
+  kakao:
+    # Primary Admin key (Kakao console → 앱 키). Authenticates Kakao's unlink webhook (/social/kakao/unlink).
+    admin-key: ${KAKAO_ADMIN_KEY:}
+    # Pending unlinks, on the persistent volume in production (compose: /keys, next to the signing key).
+    unlink-journal: ${AUTH_KAKAO_UNLINK_JOURNAL:./.local/kakao-unlinks.log}
   # POST /login, /signup, /password/reset[/confirm], /account/password per client IP
   rate-limit-per-minute: 20
   mail:

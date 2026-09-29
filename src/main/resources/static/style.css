@@ -304,3 +304,25 @@ main.landing { margin-top: 9vh; }
   color: var(--ink-faint);
 }
 .divider::before, .divider::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+
+footer a { color: inherit; }
+footer a:hover { color: var(--ink-soft); }
+
+/* Long-form pages (privacy policy) */
+main.doc { max-width: 680px; margin-top: 3vh; line-height: 1.7; font-size: 14px; color: var(--ink-soft); }
+main.doc h1 { color: var(--ink); margin-bottom: 4px; }
+main.doc .meta { margin: 0 0 20px; color: var(--ink-faint); font-size: 13px; }
+main.doc h2 { margin: 28px 0 8px; color: var(--ink); font-size: 15px; }
+main.doc strong { color: var(--ink); font-weight: 600; }
+main.doc ul { padding-left: 18px; margin: 8px 0; }
+main.doc li { margin: 4px 0; }
+main.doc table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 13px; }
+main.doc th, main.doc td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+main.doc th { color: var(--ink); font-weight: 600; }
+main.doc code { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+@media (max-width: 480px) {
+  main.doc table, main.doc thead, main.doc tbody, main.doc tr, main.doc th, main.doc td { display: block; }
+  main.doc thead { display: none; }
+  main.doc tr { padding: 8px 0; border-bottom: 1px solid var(--line); }
+  main.doc td { border: 0; padding: 2px 0; }
+}

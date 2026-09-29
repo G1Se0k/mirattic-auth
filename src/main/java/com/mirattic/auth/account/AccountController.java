@@ -34,6 +34,12 @@ class AccountController {
 	}
 
 	/** Names the product the user came from ("로그인하면 Mirattic Sync로 돌아갑니다"), if any. */
+	/** Public: Kakao / Naver review and every product link here. */
+	@GetMapping("/privacy")
+	String privacy() {
+		return "privacy";
+	}
+
 	@GetMapping("/login")
 	String login(HttpServletRequest request, HttpServletResponse response, Model model) {
 		SavedRequest saved = requestCache.getRequest(request, response);
