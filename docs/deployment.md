@@ -52,8 +52,9 @@ to the previous image, keeps 5 tagged images). The deploy job runs only when the
 - [x] CI test job green on GitHub
 - [x] mail provider decided: **Resend** (SMTP `smtp.resend.com:587`, user `resend`); host/port/user set in host `.env`
 - [x] Resend API key → host `.env` `MAIL_PASSWORD` (SMTP auth OK)
-- [ ] Resend domain `mirattic.com` verified (SPF/DKIM records in Cloudflare DNS) — until then sends fail
-      with `550 not authorized to send emails from mirattic.com`; works without redeploy once verified
+- [x] Resend domain **`mail.mirattic.com`** verified (DKIM `resend._domainkey.mail`, SPF/MX `send.mail`);
+      SMTP test send from `noreply@mail.mirattic.com` accepted
+- [ ] DMARC record (`_dmarc.mail.mirattic.com` or `_dmarc.mirattic.com` TXT `v=DMARC1; p=none`) — recommended
 - [x] repo variable `DEPLOY_ENABLED=true` → first deploy (manual redeploy: `gh workflow run CI`)
 - [ ] raw client secrets → Sync / Flow server env (Phase 3 / 4), then delete `client-secrets.txt`
 
@@ -83,8 +84,8 @@ Plan for:
 - secure backup
 
 ## Email
-Provider: Resend (SMTP). Sender `noreply@mirattic.com` (`AUTH_MAIL_FROM`). Requires the domain verified in
-Resend (SPF + DKIM records in Cloudflare DNS; add a DMARC record too). Free tier 3,000 mails / month;
+Provider: Resend (SMTP). Verified domain `mail.mirattic.com`; sender `noreply@mail.mirattic.com`
+(`AUTH_MAIL_FROM`, set in `deploy/compose.yml`). SPF + DKIM records are in Cloudflare DNS; add DMARC. Free tier 3,000 mails / month;
 reset mail is limited to one per account per day.
 
 ## Backups

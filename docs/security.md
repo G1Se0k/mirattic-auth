@@ -107,4 +107,4 @@ Configure:
 - SPF
 - DKIM
 - DMARC
-- sender such as `noreply@mirattic.com`
+- sender `noreply@mail.mirattic.com` (Resend verified domain)
