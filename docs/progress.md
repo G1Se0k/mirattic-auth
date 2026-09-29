@@ -68,7 +68,10 @@ Create the central Mirattic Auth project and finalize the first deployable authe
   the removed method; deletion fences the account first so no product profile is re-created mid-deletion; Flow
   counts owners with a locking read). Round 3: FAIL → fixed (fence lifted on any failure before the final commit;
   sessions of non-ACTIVE accounts signed out per request; Flow keeps a per-UID deletion boundary even without a
-  profile, sign-in and deletion serialized per UID; names replaced by position and length). Auth 64, Flow 121 tests.
+  profile, sign-in and deletion serialized per UID; names replaced by position and length). Round 4: Auth PASS.
+  Flow rounds 4–7 (2026-09-30): lock order, locking reads, name-bearing writes and membership creation serialized
+  with withdrawal, indexes; verified on MySQL 8.4 (123 tests). Final Flow verdict FAIL on one accepted limitation
+  (project creation racing a withdrawal; Flow phase-19 doc). Sync: see Known Issues.
 
 ## Required Tests
 - Authorization Code + PKCE success/failure
@@ -174,6 +177,9 @@ Not changed: Sync / Flow code (user request: do not touch yet).
 - Social accounts can't be linked to an existing account yet (a first Kakao / Naver sign-in always makes a new one).
 - No email verification (decided 2026-09-29): anyone can sign up with an email they don't own (the owner can take it over via reset). Mitigated by one signup per network per day.
 - Shared networks (office / campus / mobile CGNAT) get one signup per day in total.
+- Flow (accepted, user 2026-09-30): two co-owners withdrawing at the same moment can deadlock (one gets 500, rolled
+  back, retry); a project created at the exact moment of its creator's withdrawal can survive it (one-line fix:
+  lockNamed in ProjectService.create).
 - Sync: a Sync callback holding tokens issued just before the deletion fence can create a Sync profile after Sync
   answered 204 (Codex Sol, Sync review 2026-09-29). Flow closes this with a per-UID deletion boundary under a lock;
   Sync needs the same (Sync repo, handled by the Sync session).
