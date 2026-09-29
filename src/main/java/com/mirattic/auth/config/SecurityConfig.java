@@ -67,7 +67,9 @@ class SecurityConfig {
 		return http
 				.authorizeHttpRequests(a -> a
 						.requestMatchers("/actuator/health", "/login", "/signup", "/password/reset",
-								"/password/reset/confirm", "/style.css", "/error").permitAll()
+								"/password/reset/confirm", "/error").permitAll()
+						.requestMatchers("/style.css", "/fonts/**", "/mark.svg", "/favicon-32.png",
+								"/apple-touch-icon.png").permitAll()
 						.anyRequest().authenticated())
 				.formLogin(f -> f.loginPage("/login"))
 				// Reset links carry a token in the URL; never leak it through Referer.

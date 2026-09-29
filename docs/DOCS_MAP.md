@@ -10,3 +10,4 @@
 - `migration.md` — Sync/Flow migration
 - `deployment.md` — deployment/keys/backups
 - `progress.md` — phase tracker
+- `brand/` — Mirattic logo mark (SVG + PNGs)

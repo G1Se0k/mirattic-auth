@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<!-- Shared pieces of every Auth page. -->
+<head th:fragment="head(title)">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title th:text="${title} + ' · Mirattic'">Mirattic</title>
+  <link rel="icon" type="image/svg+xml" th:href="@{/mark.svg}">
+  <link rel="icon" type="image/png" sizes="32x32" th:href="@{/favicon-32.png}">
+  <link rel="apple-touch-icon" th:href="@{/apple-touch-icon.png}">
+  <link rel="preload" th:href="@{/fonts/PretendardStdVariable.woff2}" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" th:href="@{/style.css}">
+</head>
+<body>
+<header class="top" th:fragment="top">
+  <a class="brand" th:href="@{/account}"><img th:src="@{/mark.svg}" alt="">Mirattic <span>계정</span></a>
+</header>
+
+<footer th:fragment="bottom">
+  Mirattic Sync와 Mirattic Flow에서 같은 계정을 씁니다.
+</footer>
+
+<!-- "표시" toggle for password inputs: <div class="input"><input type="password" ...><button class="peek" ...> -->
+<script th:fragment="peek">
+  document.querySelectorAll('.peek').forEach(function (b) {
+    var input = b.previousElementSibling;
+    input.setAttribute('data-peek', '');
+    b.addEventListener('click', function () {
+      var show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      b.textContent = show ? '숨기기' : '표시';
+      b.setAttribute('aria-pressed', String(show));
+      input.focus();
+    });
+  });
+</script>
+</body>
+</html>

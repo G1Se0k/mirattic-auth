@@ -1,18 +1,38 @@
 <!doctype html>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Mirattic 회원가입</title><link rel="stylesheet" th:href="@{/style.css}"></head>
-<body><main>
-  <h1>Mirattic 계정 만들기</h1>
-  <div class="msg error" th:if="${error}" th:text="${error}"></div>
-  <form method="post" th:action="@{/signup}">
-    <label for="email">이메일</label>
-    <input id="email" name="email" type="email" autocomplete="email" maxlength="254" required th:value="${email}">
-    <label for="displayName">이름</label>
-    <input id="displayName" name="displayName" autocomplete="nickname" maxlength="64" required th:value="${displayName}">
-    <label for="password">비밀번호 (8자 이상)</label>
-    <input id="password" name="password" type="password" autocomplete="new-password" minlength="8" required>
-    <button type="submit">가입하기</button>
-  </form>
-  <div class="links"><a th:href="@{/login}">이미 계정이 있습니다</a></div>
-</main></body>
+<head th:replace="~{fragments :: head('회원가입')}"></head>
+<body>
+<header th:replace="~{fragments :: top}"></header>
+<main>
+  <div class="panel">
+    <h1>Mirattic 계정 만들기</h1>
+    <p class="lede">이 계정으로 Mirattic Sync와 Mirattic Flow에 로그인합니다.</p>
+
+    <p class="note error" th:if="${error}" th:text="${error}"></p>
+
+    <form method="post" th:action="@{/signup}">
+      <div class="field">
+        <label for="email">이메일</label>
+        <input id="email" name="email" type="email" autocomplete="email" maxlength="254" required th:value="${email}">
+      </div>
+      <div class="field">
+        <label for="displayName">이름 <small>다른 사람에게 보이는 이름입니다</small></label>
+        <input id="displayName" name="displayName" autocomplete="nickname" maxlength="64" required placeholder="홍길동" th:value="${displayName}">
+      </div>
+      <div class="field">
+        <label for="password">비밀번호 <small>8자 이상</small></label>
+        <div class="input">
+          <input id="password" name="password" type="password" autocomplete="new-password" minlength="8" required>
+          <button type="button" class="peek" aria-controls="password" aria-pressed="false">표시</button>
+        </div>
+      </div>
+      <button type="submit" class="primary">가입하기</button>
+    </form>
+
+    <p class="alt">이미 계정이 있으신가요? <a th:href="@{/login}">로그인</a></p>
+  </div>
+</main>
+<footer th:replace="~{fragments :: bottom}"></footer>
+<script th:replace="~{fragments :: peek}"></script>
+</body>
 </html>

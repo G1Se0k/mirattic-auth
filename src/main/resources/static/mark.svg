@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Mirattic">
+  <!-- Mirattic mark. Two ribbons meet in an M, the right one folding over the left; the space under
+       them is a house (the attic) with one round attic window. Proportions follow the Sync (bare M)
+       and Flow (M + window grid) app icons. -->
+  <defs>
+    <linearGradient id="m" x1="56" y1="440" x2="456" y2="104" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7C4DFF"/>
+      <stop offset="0.5" stop-color="#4F6BFF"/>
+      <stop offset="1" stop-color="#2FD3F5"/>
+    </linearGradient>
+    <linearGradient id="fold" x1="256" y1="0" x2="196" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1B2AB0" stop-opacity="0.4"/>
+      <stop offset="1" stop-color="#1B2AB0" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <g fill="url(#m)" stroke="url(#m)" stroke-width="40" stroke-linejoin="round">
+    <path d="M76 124 L256 214 L256 294 L168 250 L168 390 L76 420 Z"/>
+    <path d="M436 124 L256 214 L256 294 L344 250 L344 390 L436 420 Z"/>
+  </g>
+  <!-- shadow of the right ribbon where it folds over the left one -->
+  <path d="M256 194 L196 224 L196 284 L256 314 Z" fill="url(#fold)"/>
+  <g transform="translate(256 350)">
+    <circle r="22" fill="#8B9CFF" fill-opacity="0.55"/>
+    <path d="M0 -22 V22 M-22 0 H22" stroke="#FFFFFF" stroke-width="4.5"/>
+  </g>
+</svg>

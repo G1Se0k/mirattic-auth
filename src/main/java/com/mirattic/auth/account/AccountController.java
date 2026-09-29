@@ -1,8 +1,14 @@
 package com.mirattic.auth.account;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
+import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
+import org.springframework.security.web.savedrequest.HttpSessionRequestCache;
+import org.springframework.security.web.savedrequest.RequestCache;
+import org.springframework.security.web.savedrequest.SavedRequest;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,9 +20,12 @@ import org.springframework.web.bind.annotation.RequestParam;
 class AccountController {
 
 	private final AccountService accounts;
+	private final RegisteredClientRepository clients;
+	private final RequestCache requestCache = new HttpSessionRequestCache();
 
-	AccountController(AccountService accounts) {
+	AccountController(AccountService accounts, RegisteredClientRepository clients) {
 		this.accounts = accounts;
+		this.clients = clients;
 	}
 
 	@GetMapping("/")
@@ -24,8 +33,15 @@ class AccountController {
 		return "redirect:/account";
 	}
 
+	/** Names the product the user came from ("로그인하면 Mirattic Sync로 돌아갑니다"), if any. */
 	@GetMapping("/login")
-	String login() {
+	String login(HttpServletRequest request, HttpServletResponse response, Model model) {
+		SavedRequest saved = requestCache.getRequest(request, response);
+		String[] clientId = saved == null ? null : saved.getParameterValues("client_id");
+		RegisteredClient client = clientId == null ? null : clients.findByClientId(clientId[0]);
+		if (client != null) {
+			model.addAttribute("clientName", client.getClientName());
+		}
 		return "login";
 	}
 

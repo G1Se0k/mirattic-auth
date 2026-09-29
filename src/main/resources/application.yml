@@ -15,6 +15,7 @@ spring:
           sync:
             registration:
               client-id: mirattic-sync
+              client-name: Mirattic Sync
               # BCrypt hash only ({bcrypt}$2...). The raw secret lives in the product backend. No default.
               client-secret: ${SYNC_CLIENT_SECRET_HASH}
               client-authentication-methods: [client_secret_basic]
@@ -30,6 +31,7 @@ spring:
           flow:
             registration:
               client-id: mirattic-flow
+              client-name: Mirattic Flow
               # BCrypt hash only ({bcrypt}$2...). The raw secret lives in the product backend. No default.
               client-secret: ${FLOW_CLIENT_SECRET_HASH}
               client-authentication-methods: [client_secret_basic]
