@@ -54,8 +54,12 @@ to the previous image, keeps 5 tagged images). The deploy job runs only when the
 - [x] Resend API key → host `.env` `MAIL_PASSWORD` (SMTP auth OK)
 - [x] Resend domain **`mail.mirattic.com`** verified (DKIM `resend._domainkey.mail`, SPF/MX `send.mail`);
       SMTP test send from `noreply@mail.mirattic.com` accepted
-- [ ] DMARC record (`_dmarc.mail.mirattic.com` or `_dmarc.mirattic.com` TXT `v=DMARC1; p=none`) — recommended
+- [x] DMARC `_dmarc.mail.mirattic.com` TXT `v=DMARC1; p=none; adkim=s; aspf=s` (→ `p=quarantine` once mails
+      are seen landing in inboxes)
 - [x] repo variable `DEPLOY_ENABLED=true` → first deploy (manual redeploy: `gh workflow run CI`)
+- [x] **Live 2026-09-29** at https://auth.mirattic.com: health / discovery / JWKS 200, issuer correct,
+      authorize → login, cookie `Secure; HttpOnly; SameSite=Lax`, HSTS, backup agent loaded; Sync / Flow unaffected.
+      End-to-end reset mail from the running app (test account → `delivered@resend.dev`) sent; test data removed.
 - [ ] raw client secrets → Sync / Flow server env (Phase 3 / 4), then delete `client-secrets.txt`
 
 ### Backups

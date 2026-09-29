@@ -1,4 +1,5 @@
 # Current Phase
+Auth is live at https://auth.mirattic.com (2026-09-29).
 Phase 3 — Mirattic Sync Migration (Auth-side prep only; Sync code untouched by request)
 
 ## Goal
@@ -158,12 +159,12 @@ Not changed: Sync / Flow code (user request: do not touch yet).
 - Shared networks (office / campus / mobile CGNAT) get one signup per day in total.
 - Disabling a user does not end an existing Auth browser session; `/oauth2/authorize` still issues a code, but the code can no longer be exchanged (ACTIVE check at token issuance). Session cleanup belongs to the disable/delete feature (Phase 5).
 - SAS schema `timestamp` columns: MySQL 2038 limit.
-- Deploy pipeline not yet exercised on the real host (needs one-time setup in deployment.md).
 - Single signing key; rotation (previous public key in JWKS) is Phase 7.
 - Flow uses KAKAO / NAVER, not in Auth's LOCAL/GOOGLE/APPLE plan — needs decision.
 - Flow numeric IDs need a UUID mapping (Flow keeps `users.id`, adds Mirattic UID column) — Flow change, deferred.
 - Sync access-token `iss` is `mirattic`; Auth issuer is the URL — dual acceptance must handle both.
 
 ## Next Task
-1. SMTP provider for `noreply@mirattic.com` → fill `MAIL_*` on host → `DEPLOY_ENABLED=true` → first deploy (`deployment.md` "Setup status").
-2. Waiting for approval to change Sync code (`migration.md` "Sync-side Work List" 1–5).
+1. Waiting for approval to change Sync code (`migration.md` "Sync-side Work List" 1–5).
+2. Optional: DMARC `p=quarantine` after a few days of inbox delivery; rotate the Resend API key if desired
+   (it was shared in chat).
