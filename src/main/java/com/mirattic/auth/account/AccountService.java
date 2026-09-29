@@ -5,6 +5,7 @@ import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
@@ -18,6 +19,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.FactorGrantedAuthority;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.session.FindByIndexNameSessionRepository;
 import org.springframework.session.Session;
@@ -193,6 +196,32 @@ public class AccountService {
 				.forEach(sessions::deleteById);
 	}
 
+
+	/**
+	 * When the user last signed in (the latest factor: password, Kakao / Naver), EPOCH if unknown. The same source SAS
+	 * uses for the ID token's auth_time.
+	 */
+	public static Instant signInTime(Authentication auth) {
+		return auth == null ? Instant.EPOCH : auth.getAuthorities().stream()
+				.filter(a -> a instanceof FactorGrantedAuthority)
+				.map(a -> ((FactorGrantedAuthority) a).getIssuedAt())
+				.max(Instant::compareTo).orElse(Instant.EPOCH);
+	}
+
+	/**
+	 * Removes a Kakao / Naver sign-in method, only while another one remains (the users row is locked, so two
+	 * concurrent removals can't leave none).
+	 */
+	@Transactional
+	public void unlink(String userId, String provider) {
+		jdbc.queryForObject("SELECT id FROM users WHERE id = ? FOR UPDATE", String.class, userId);
+		Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM user_identities WHERE user_id = ?", Integer.class,
+				userId);
+		if (count == null || count < 2) {
+			throw new AccountException("마지막 로그인 방법은 해제할 수 없습니다.");
+		}
+		jdbc.update("DELETE FROM user_identities WHERE user_id = ? AND provider = ?", userId, provider);
+	}
 
 	/** BCrypt only uses the first 72 bytes, so longer passwords are refused rather than silently cut. */
 	private static void checkPassword(String password) {

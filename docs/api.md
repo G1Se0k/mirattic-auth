@@ -37,13 +37,11 @@ Server-rendered on `/account` ("로그인된 기기"), no JSON API.
 - `POST /account/devices/end` (session + CSRF, `id`): ends that browser session or deletes that authorization (its
   access token lapses within 15 min). Only the user's own; this browser is ended by `/logout`, not here.
 
-## Identity Linking (later)
-`POST /api/account/identities/{provider}/link`
-
-Rules:
-- user is already authenticated
-- explicit linking only
-- never auto-link solely because email matches
+## Sign-in Methods (Phase 5)
+Server-rendered on `/account` ("로그인 방법"). Rules in `security.md` "Account Linking".
+- `POST /account/link/{kakao|naver}` (session + CSRF): → `/oauth2/authorization/{provider}` → back to `/`, or
+  `/account?link_error=taken|exists|failed`. Stale sign-in (> 10 min): `/login?reauth`.
+- `POST /account/unlink/{kakao|naver}` (session + CSRF): `/account?unlinked`; refused for the last method.
 
 ## Account Deletion
 `DELETE /api/account`

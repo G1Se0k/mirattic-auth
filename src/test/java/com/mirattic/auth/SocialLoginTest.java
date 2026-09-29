@@ -1,9 +1,12 @@
 package com.mirattic.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
@@ -25,6 +28,9 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.FactorGrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
@@ -177,6 +183,119 @@ class SocialLoginTest extends IntegrationTest {
 		mvc.perform(get("/login")).andExpect(status().isOk())
 				.andExpect(content().string(Matchers.containsString("/oauth2/authorization/kakao")))
 				.andExpect(content().string(Matchers.containsString("/oauth2/authorization/naver")));
+	}
+
+	@Test
+	void aPasswordAccountAddsKakaoAndSignsInWithEither() throws Exception {
+		String email = email();
+		String uid = signup(email, "password-1", "L");
+		Cookie session = login(email, "password-1");
+		mvc.perform(post("/account/link/kakao").with(csrf()).cookie(session))
+				.andExpect(redirectedUrl("/oauth2/authorization/kakao"));
+		// The user picks which Kakao account: Kakao asks for its login.
+		assertThat(mvc.perform(get("/oauth2/authorization/kakao").cookie(session)).andReturn().getResponse()
+				.getRedirectedUrl()).contains("prompt=login");
+
+		String kakaoId = providerId();
+		SignIn in = signIn("kakao", kakao(kakaoId, "other@example.com", "카카오이름"), session);
+		assertThat(in.redirect()).endsWith("/");
+		assertThat(owner("KAKAO", kakaoId)).isEqualTo(uid);
+		mvc.perform(get("/account").cookie(in.session())).andExpect(status().isOk())
+				.andExpect(content().string(Matchers.containsString("/account/unlink/kakao")))
+				.andExpect(content().string(Matchers.containsString("/account/link/naver")));
+		// Kakao alone now signs in to the same account; the name and contact email stay.
+		signIn("kakao", kakao(kakaoId, "other@example.com", "카카오이름"), null);
+		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM users u WHERE u.id = ? AND u.display_name = 'L'",
+				Integer.class, uid)).isOne();
+
+		// Removing it: allowed while the password remains.
+		mvc.perform(post("/account/unlink/kakao").with(csrf()).cookie(in.session()))
+				.andExpect(redirectedUrl("/account?unlinked#methods"));
+		assertThat(owner("KAKAO", kakaoId)).isNull();
+	}
+
+	@Test
+	void aLinkNeverTakesAnotherAccountsIdentityOrAddsASecondOfOneProvider() throws Exception {
+		String kakaoTaken = providerId();
+		signIn("kakao", kakao(kakaoTaken, null, "남"), null);
+		String theirs = owner("KAKAO", kakaoTaken);
+
+		String email = email();
+		String uid = signup(email, "password-1", "L");
+		Cookie session = login(email, "password-1");
+		assertThat(link(session, "kakao", kakao(kakaoTaken, null, "남")).getRedirectedUrl())
+				.endsWith("/account?link_error=taken");
+		assertThat(owner("KAKAO", kakaoTaken)).isEqualTo(theirs);
+		mvc.perform(get("/account").cookie(session)).andExpect(status().isOk()) // still signed in as before
+				.andExpect(content().string(Matchers.containsString("L 님")));
+
+		String mine = providerId();
+		MockHttpServletResponse linked = link(session, "kakao", kakao(mine, null, "나"));
+		assertThat(linked.getRedirectedUrl()).endsWith("/");
+		session = linked.getCookie("SESSION"); // a sign-in: new session id
+		assertThat(link(session, "kakao", kakao(providerId(), null, "나2")).getRedirectedUrl())
+				.endsWith("/account?link_error=exists");
+		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM user_identities WHERE user_id = ?", Integer.class, uid))
+				.isEqualTo(2);
+	}
+
+	@Test
+	void theLastSignInMethodStays() throws Exception {
+		String kakaoId = providerId();
+		Cookie session = signIn("kakao", kakao(kakaoId, null, "혼자")).session();
+		mvc.perform(post("/account/unlink/kakao").with(csrf()).cookie(session)).andExpect(status().isOk())
+				.andExpect(content().string(Matchers.containsString("마지막 로그인 방법")));
+		assertThat(owner("KAKAO", kakaoId)).isNotNull();
+		mvc.perform(get("/account").cookie(session))
+				.andExpect(content().string(Matchers.not(Matchers.containsString("/account/unlink/kakao"))));
+	}
+
+	@Test
+	void changingSignInMethodsNeedsARecentSignIn() throws Exception {
+		String email = email();
+		String uid = signup(email, "password-1", "L");
+		var old = new UsernamePasswordAuthenticationToken(uid, null, List.of(new SimpleGrantedAuthority("ROLE_USER"),
+				FactorGrantedAuthority.withAuthority(FactorGrantedAuthority.PASSWORD_AUTHORITY)
+						.issuedAt(Instant.now().minusSeconds(11 * 60)).build()));
+		mvc.perform(post("/account/link/kakao").with(csrf()).with(authentication(old)))
+				.andExpect(redirectedUrl("/login?reauth"));
+		mvc.perform(post("/account/unlink/kakao").with(csrf()).with(authentication(old)))
+				.andExpect(redirectedUrl("/login?reauth"));
+	}
+
+	@Test
+	void anAbandonedLinkIsNotAppliedToALaterSignIn() throws Exception {
+		String email = email();
+		String uid = signup(email, "password-1", "L");
+		Cookie session = login(email, "password-1");
+		mvc.perform(post("/account/link/naver").with(csrf()).cookie(session));
+		// Cancelled at Naver: back to the account page, still signed in, nothing pending.
+		Cookie s = mvc.perform(get("/oauth2/authorization/naver").cookie(session)).andReturn().getResponse()
+				.getCookie("SESSION");
+		String cancelled = mvc.perform(get("/login/oauth2/code/naver").param("error", "access_denied")
+				.param("state", "x").cookie(s != null ? s : session)).andReturn().getResponse().getRedirectedUrl();
+		assertThat(cancelled).endsWith("/account?link_error=failed");
+
+		mvc.perform(post("/account/link/naver").with(csrf()).cookie(session));
+		mvc.perform(get("/login").cookie(session)).andExpect(status().isOk()); // went to sign in instead
+		String naverId = "nv-" + UUID.randomUUID();
+		signIn("naver", naver(naverId, email, "다른사람"), session);
+		assertThat(owner("NAVER", naverId)).isNotEqualTo(uid);
+	}
+
+	private String owner(String provider, String subject) {
+		return jdbc.query("SELECT user_id FROM user_identities WHERE provider = ? AND subject = ?",
+				rs -> rs.next() ? rs.getString(1) : null, provider, subject);
+	}
+
+	private MockHttpServletResponse link(Cookie session, String provider, String userInfo) throws Exception {
+		mvc.perform(post("/account/link/" + provider).with(csrf()).cookie(session))
+				.andExpect(redirectedUrl("/oauth2/authorization/" + provider));
+		return start(provider, userInfo, session);
+	}
+
+	private SignIn signIn(String provider, String userInfo) throws Exception {
+		return signIn(provider, userInfo, null);
 	}
 
 	record SignIn(Cookie session, String redirect) {

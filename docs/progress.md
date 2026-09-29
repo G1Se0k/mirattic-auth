@@ -45,7 +45,7 @@ Create the central Mirattic Auth project and finalize the first deployable authe
 
 ### Phase 5 — Account Center (in progress; user decisions 2026-09-29)
 - sessions + session revoke: device list with per-device sign-out (`api.md` "Devices") — done
-- identity management: link / unlink Kakao and Naver only (adding email + password later) — next
+- identity management: link / unlink Kakao and Naver only (adding email + password later) — done
 - account deletion: Auth asks Sync and Flow to delete their data (Auth-signed back-channel), deletes only if both
   succeed; Flow may refuse (workspace owner) — after linking
 
@@ -174,7 +174,7 @@ Not changed: Sync / Flow code (user request: do not touch yet).
 - Sync's one pre-migration test account (production, 2026-09-28) lost its legacy login; signing in with a Mirattic account of any email creates a separate Sync profile.
 
 ## Next Task
-1. Phase 5 — linking Kakao / Naver to the signed-in account, then account deletion (see Phase 5 above).
+1. Phase 5 — account deletion with Sync / Flow data (see Phase 5 above). Design first.
    (The Flow membership / chat-subscription bugs were fixed in Flow 2026-09-29, `c8f8e47`, `3d4027a`; Claude review.)
 2. Kakao / Naver consoles: rename the apps to "Mirattic", privacy URL https://auth.mirattic.com/privacy; then Naver
    review (Kakao needs none for nickname only). Kakao unlink webhook: decided not to use (2026-09-29, user).

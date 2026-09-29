@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import com.mirattic.auth.account.AccountService;
 import com.mirattic.auth.account.Devices;
 import com.mirattic.auth.account.SocialLogin;
 import com.mirattic.auth.account.SocialReauth;
@@ -35,8 +36,6 @@ import org.springframework.security.oauth2.core.oidc.endpoint.OidcParameterNames
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.authority.FactorGrantedAuthority;
 import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.context.SecurityContextHolderFilter;
@@ -88,7 +87,7 @@ class SecurityConfig {
 				.formLogin(f -> f.loginPage("/login")
 						.successHandler(Devices.recording(new SavedRequestAwareAuthenticationSuccessHandler())))
 				// Kakao / Naver: /oauth2/authorization/{kakao|naver} → provider → /login/oauth2/code/{id}.
-				.oauth2Login(o -> o.loginPage("/login").failureUrl("/login?social_error")
+				.oauth2Login(o -> o.loginPage("/login").failureHandler(SocialLogin.failureHandler())
 						.successHandler(Devices.recording(new SavedRequestAwareAuthenticationSuccessHandler()))
 						.authorizationEndpoint(a -> a.authorizationRequestResolver(new SocialReauth(registrations)))
 						.userInfoEndpoint(u -> u.userService(socialLogin)))
@@ -140,22 +139,14 @@ class SecurityConfig {
 				// When the login behind this token happened (as the ID token's auth_time; a refresh keeps the original
 				// login's time). Products use it to reject tokens of logins older than a boundary, e.g. Flow after a
 				// withdrawal and re-join (docs/oauth-oidc.md).
-				Instant authTime = authenticationTime(context.getPrincipal());
-				if (authTime != null) {
+				Instant authTime = AccountService.signInTime(context.getPrincipal());
+				if (!Instant.EPOCH.equals(authTime)) {
 					// Date, as SAS does for the ID token: written as epoch seconds, and allowed by the Jackson type
 					// allowlist that stores the token's claims with the authorization (a Long is not).
 					context.getClaims().claim("auth_time", Date.from(authTime));
 				}
 			}
 		};
-	}
-
-	/** The latest sign-in factor (password, Kakao / Naver), the same source SAS uses for the ID token's auth_time. */
-	static Instant authenticationTime(Authentication principal) {
-		return principal == null ? null : principal.getAuthorities().stream()
-				.filter(a -> a instanceof FactorGrantedAuthority)
-				.map(a -> ((FactorGrantedAuthority) a).getIssuedAt())
-				.max(Instant::compareTo).orElse(null);
 	}
 
 	/** Refresh tokens are stored hashed, which only works with rotation (see HashedTokenAuthorizationService). */

@@ -3,6 +3,10 @@ package com.mirattic.auth.account;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Locale;
+import java.util.Set;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
@@ -12,6 +16,7 @@ import org.springframework.security.web.savedrequest.SavedRequest;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -22,6 +27,9 @@ class AccountController {
 	private final AccountService accounts;
 	private final RegisteredClientRepository clients;
 	private final Devices devices;
+	private static final Set<String> PROVIDERS = Set.of("kakao", "naver");
+	private static final Duration FRESH = Duration.ofMinutes(10);
+
 	private final RequestCache requestCache = new HttpSessionRequestCache();
 
 	AccountController(AccountService accounts, RegisteredClientRepository clients, Devices devices) {
@@ -44,6 +52,11 @@ class AccountController {
 
 	@GetMapping("/login")
 	String login(HttpServletRequest request, HttpServletResponse response, Model model) {
+		// Back on the login page: an unfinished Kakao / Naver link is abandoned (the next social sign-in is a sign-in).
+		HttpSession session = request.getSession(false);
+		if (session != null) {
+			session.removeAttribute(SocialLogin.LINK);
+		}
 		SavedRequest saved = requestCache.getRequest(request, response);
 		String[] clientId = saved == null ? null : saved.getParameterValues("client_id");
 		RegisteredClient client = clientId == null ? null : clients.findByClientId(clientId[0]);
@@ -114,6 +127,44 @@ class AccountController {
 	String endDevice(Authentication auth, @RequestParam String id, HttpSession session) {
 		devices.end(auth.getName(), id, session.getId());
 		return "redirect:/account?ended#devices";
+	}
+
+	/** Starts adding Kakao / Naver: the provider signs the user in, SocialLogin adds that identity to this account. */
+	@PostMapping("/account/link/{provider}")
+	String link(@PathVariable String provider, Authentication auth, HttpServletRequest request,
+			HttpServletResponse response) {
+		if (!PROVIDERS.contains(provider)) {
+			return "redirect:/account";
+		}
+		if (stale(auth)) {
+			return "redirect:/login?reauth";
+		}
+		// After the link the user comes back here, not to some older saved request.
+		requestCache.removeRequest(request, response);
+		request.getSession().setAttribute(SocialLogin.LINK,
+				new SocialLogin.Link(auth.getName(), provider, Instant.now()));
+		return "redirect:/oauth2/authorization/" + provider;
+	}
+
+	@PostMapping("/account/unlink/{provider}")
+	String unlink(@PathVariable String provider, Authentication auth, HttpSession session, Model model) {
+		if (!PROVIDERS.contains(provider)) {
+			return "redirect:/account";
+		}
+		if (stale(auth)) {
+			return "redirect:/login?reauth";
+		}
+		try {
+			accounts.unlink(auth.getName(), provider.toUpperCase(Locale.ROOT));
+			return "redirect:/account?unlinked#methods";
+		} catch (AccountException e) {
+			return accountWithError(auth, session, model, e);
+		}
+	}
+
+	/** Changing how the account signs in needs a sign-in in the last 10 minutes. */
+	private static boolean stale(Authentication auth) {
+		return AccountService.signInTime(auth).isBefore(Instant.now().minus(FRESH));
 	}
 
 	@PostMapping("/account/name")

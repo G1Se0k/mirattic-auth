@@ -12,14 +12,38 @@
 
     <p class="note error" th:if="${error}" th:text="${error}"></p>
     <p class="note ok" th:if="${param.saved}">이름을 저장했습니다.</p>
+    <p class="note ok" th:if="${param.unlinked}">연결을 해제했습니다.</p>
+    <p class="note error" th:if="${param.link_error}" th:switch="${param.link_error[0]}">
+      <span th:case="'taken'">그 계정은 이미 다른 Mirattic 계정의 로그인 방법입니다.</span>
+      <span th:case="'exists'">이미 같은 서비스의 다른 계정이 연결되어 있습니다. 먼저 해제하세요.</span>
+      <span th:case="*">연결을 마치지 못했습니다. 다시 시도해주세요.</span>
+    </p>
     <p class="note ok" th:if="${param.ended}">로그아웃시켰습니다. 앱은 15분 안에 로그아웃됩니다.</p>
     <p class="note ok" th:if="${param.password}">비밀번호를 변경했습니다. 다른 기기와 앱에서는 다시 로그인해야 합니다.</p>
 
     <dl class="facts">
       <div><dt>이메일</dt><dd th:text="${account.email ?: '-'}">you@example.com</dd></div>
-      <div><dt>로그인 방법</dt><dd th:text="${#strings.listJoin(account.providers.![{'LOCAL':'이메일','KAKAO':'카카오','NAVER':'네이버'}[#this]], ', ')}">이메일</dd></div>
       <div><dt>계정 ID</dt><dd><code th:text="${account.id}">uuid</code></dd></div>
     </dl>
+
+    <section id="methods">
+      <h2>로그인 방법</h2>
+      <ul class="devices">
+        <li th:if="${account.hasPassword()}">
+          <div><strong>이메일</strong><p th:text="${account.email}">you@example.com</p></div>
+        </li>
+        <li th:each="p : ${ {'kakao', 'naver'} }" th:with="linked=${account.providers.contains(p.toUpperCase())}">
+          <div>
+            <strong th:text="${p == 'kakao' ? '카카오' : '네이버'}">카카오</strong>
+            <p th:text="${linked ? '연결됨' : '연결 안 됨'}">연결됨</p>
+          </div>
+          <form th:if="${!linked or account.providers.size() > 1}" method="post"
+                th:action="@{/account/{a}/{p}(a=${linked ? 'unlink' : 'link'}, p=${p})}">
+            <button type="submit" class="text-button" th:text="${linked ? '해제' : '연결'}">연결</button>
+          </form>
+        </li>
+      </ul>
+    </section>
 
     <section>
       <h2>이름</h2>

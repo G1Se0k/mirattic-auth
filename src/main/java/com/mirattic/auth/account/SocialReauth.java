@@ -16,6 +16,7 @@ import org.springframework.security.web.savedrequest.SavedRequest;
  * Re-authentication through Kakao / Naver. When the client asked for `prompt=login` (FreshLoginFilter ended the
  * old sign-in and the request waits in the session), the provider must ask for credentials too — otherwise its
  * own session signs the user straight back in and the new `auth_time` proves nothing.
+ * Also when adding Kakao / Naver to an account (SocialLogin link mode): the user picks which provider account.
  * Kakao: `prompt=login`. Naver: `auth_type=reauthenticate`.
  */
 public class SocialReauth implements OAuth2AuthorizationRequestResolver {
@@ -38,10 +39,15 @@ public class SocialReauth implements OAuth2AuthorizationRequestResolver {
 	}
 
 	private OAuth2AuthorizationRequest withReauth(HttpServletRequest request, OAuth2AuthorizationRequest auth) {
-		SavedRequest saved = auth == null ? null : requestCache.getRequest(request, null);
+		if (auth == null) {
+			return null;
+		}
+		SavedRequest saved = requestCache.getRequest(request, null);
 		String[] prompt = saved == null ? null : saved.getParameterMap().get("prompt");
 		// OIDC prompt is a space-separated list ("login consent" asks for a login too).
-		if (prompt == null || !Arrays.asList(prompt[0].trim().split("\\s+")).contains("login")) {
+		boolean linking = request.getSession(false) != null
+				&& request.getSession(false).getAttribute(SocialLogin.LINK) != null;
+		if (!linking && (prompt == null || !Arrays.asList(prompt[0].trim().split("\\s+")).contains("login"))) {
 			return auth;
 		}
 		Map<String, Object> extra = new LinkedHashMap<>(auth.getAdditionalParameters());

@@ -1,5 +1,6 @@
 package com.mirattic.auth.config;
 
+import com.mirattic.auth.account.AccountService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -13,7 +14,6 @@ import java.util.Arrays;
 import java.util.TreeMap;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.authority.FactorGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -61,7 +61,7 @@ final class FreshLoginFilter extends OncePerRequestFilter {
 		Pending pending = session == null ? null : (Pending) session.getAttribute(REAUTH_PENDING);
 		String query = canonical(request);
 		if (signedIn && pending != null && pending.query().equals(query)
-				&& !signInTime(auth).isBefore(pending.demandedAt())) {
+				&& !AccountService.signInTime(auth).isBefore(pending.demandedAt())) {
 			// The replay of this very demand, after a new sign-in: let it through once.
 			session.removeAttribute(REAUTH_PENDING);
 		} else {
@@ -85,13 +85,5 @@ final class FreshLoginFilter extends OncePerRequestFilter {
 			}
 		});
 		return out.toString();
-	}
-
-	/** Latest sign-in factor (password, Kakao / Naver), as SAS computes the ID token's auth_time. */
-	private static Instant signInTime(Authentication auth) {
-		return auth.getAuthorities().stream()
-				.filter(a -> a instanceof FactorGrantedAuthority)
-				.map(a -> ((FactorGrantedAuthority) a).getIssuedAt())
-				.max(Instant::compareTo).orElse(Instant.EPOCH);
 	}
 }

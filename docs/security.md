@@ -78,7 +78,15 @@ Do not unnecessarily reveal whether an email/account exists.
 Never auto-merge solely on matching email.
 Explicit linking is the default. Kakao / Naver sign-ins are keyed by the provider's user id only; a first
 sign-in always creates a new account, even when its email equals an existing one (`oauth-oidc.md`).
-Linking a second sign-in method to an existing account is not implemented yet.
+Linking (Phase 5, account page, Kakao / Naver only):
+- Started by the signed-in user (POST + CSRF) with a sign-in in the last 10 minutes, else `/login?reauth`. The
+  pending link lives in the session for 10 minutes and is consumed by the next provider callback; the login page
+  clears it. The provider is asked to show its login (Kakao `prompt=login`, Naver `auth_type=reauthenticate`), so
+  the user picks the provider account. The OAuth `state` binds the callback to that browser.
+- The callback attaches the identity only to the account still signed in there. Refused: an identity that belongs
+  to another account (`link_error=taken`, never moved), a second identity of the same provider (`exists`).
+- Unlinking (same 10-minute rule) needs another sign-in method left; the users row is locked so two concurrent
+  unlinks can't remove the last one. Email + password can't be added to a social-only account yet.
 
 ## Never Log
 - passwords
