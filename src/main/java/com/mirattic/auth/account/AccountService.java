@@ -31,7 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AccountService {
 
-	/** `email`: the LOCAL identity's, else a Kakao / Naver one's (may be null). `providers`: LOCAL, KAKAO, NAVER. */
+	/** `email`: the LOCAL identity's, else a social one's (may be null). `providers`: LOCAL, KAKAO, NAVER, GOOGLE. */
 	public record Account(String id, String displayName, String email, List<String> providers) {
 		public boolean hasPassword() {
 			return providers.contains("LOCAL");
@@ -226,7 +226,7 @@ public class AccountService {
 			throw new AccountException("마지막 로그인 방법은 해제할 수 없습니다.");
 		}
 		if (jdbc.update("DELETE FROM user_identities WHERE user_id = ? AND provider = ?", userId, provider) > 0) {
-			events.record(userId, SecurityEvents.Type.UNLINKED, "KAKAO".equals(provider) ? "카카오" : "네이버");
+			events.record(userId, SecurityEvents.Type.UNLINKED, SocialLogin.providerName(provider));
 			endSessions(userId, currentSessionId);
 		}
 	}

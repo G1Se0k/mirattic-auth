@@ -8,8 +8,9 @@ spring:
     password: ${DB_PASSWORD:}
   security:
     oauth2:
-      # Kakao / Naver sign-in (docs/oauth-oidc.md "Social login"), the apps the old Flow login used.
-      # Their consoles must list https://auth.mirattic.com/login/oauth2/code/{kakao|naver} as redirect URI.
+      # Kakao / Naver / Google sign-in (docs/oauth-oidc.md "Social login"); Kakao / Naver are the apps the old Flow
+      # login used. Their consoles must list https://auth.mirattic.com/login/oauth2/code/{kakao|naver|google}.
+      # Google's endpoints come from Spring's built-in "google" provider (OpenID Connect, ID token checked).
       client:
         registration:
           kakao:
@@ -26,6 +27,11 @@ spring:
             client-authentication-method: client_secret_post
             authorization-grant-type: authorization_code
             redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+          google:
+            client-name: Google
+            client-id: ${GOOGLE_CLIENT_ID:dev-google}
+            client-secret: ${GOOGLE_CLIENT_SECRET:}
+            scope: [openid, profile, email]
         provider:
           kakao:
             authorization-uri: https://kauth.kakao.com/oauth/authorize

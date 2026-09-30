@@ -149,6 +149,7 @@ h1 {
 }
 .field label a, .field label small { font-weight: 500; font-size: 13px; }
 .field label small { color: var(--ink-faint); }
+.forgot { margin: 8px 0 0; font-size: 13px; text-align: right; }
 .input { position: relative; }
 input {
   width: 100%;
@@ -334,6 +335,10 @@ main.landing { margin-top: 9vh; }
 .social-button.kakao svg { fill: #000; }
 .social-button.naver { background: #03C75A; color: #fff; }
 .social-button.naver svg { width: 14px; height: 14px; fill: #fff; }
+.social-button.google { background: #FFFFFF; color: #1F1F1F; box-shadow: inset 0 0 0 1px #747775; font-weight: 500; }
+@media (prefers-color-scheme: dark) {
+  .social-button.google { background: #131314; color: #E3E3E3; box-shadow: inset 0 0 0 1px #8E918F; }
+}
 .divider {
   display: flex;
   align-items: center;

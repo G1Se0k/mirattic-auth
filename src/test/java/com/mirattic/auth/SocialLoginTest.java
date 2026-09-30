@@ -179,10 +179,64 @@ class SocialLoginTest extends IntegrationTest {
 	}
 
 	@Test
-	void loginPageOffersBothProviders() throws Exception {
+	void loginPageOffersEveryProvider() throws Exception {
 		mvc.perform(get("/login")).andExpect(status().isOk())
 				.andExpect(content().string(Matchers.containsString("/oauth2/authorization/kakao")))
-				.andExpect(content().string(Matchers.containsString("/oauth2/authorization/naver")));
+				.andExpect(content().string(Matchers.containsString("/oauth2/authorization/naver")))
+				.andExpect(content().string(Matchers.containsString("/oauth2/authorization/google")));
+		// Tab from the email lands on the password, not on the reset link.
+		String page = mvc.perform(get("/login")).andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+		assertThat(page.indexOf("id=\"username\"")).isLessThan(page.indexOf("id=\"password\""));
+		assertThat(page.indexOf("id=\"password\"")).isLessThan(page.indexOf("/password/reset"));
+	}
+
+	@Test
+	void googleSignInIsKeyedBySubAndKeepsOnlyAVerifiedEmail() throws Exception {
+		String sub = providerId();
+		Cookie session = googleSignIn(null, sub, "unverified@example.com", false, "구글친구", "dev-google").session();
+		String uid = owner("GOOGLE", sub);
+		assertThat(uid).isNotNull();
+		assertThat(jdbc.queryForObject("SELECT display_name FROM users WHERE id = ?", String.class, uid)).isEqualTo("구글친구");
+		assertThat(jdbc.queryForObject("SELECT email FROM user_identities WHERE provider = 'GOOGLE' AND subject = ?",
+				String.class, sub)).isNull();
+		mvc.perform(get("/account").cookie(session)).andExpect(status().isOk())
+				.andExpect(content().string(Matchers.containsString("<strong>Google</strong>")))
+				.andExpect(content().string(Matchers.not(Matchers.containsString("/account/unlink/google")))); // the only one
+
+		// The same Google account with a new (verified) address: same Mirattic account, the address is kept.
+		googleSignIn(null, sub, "g@example.com", true, "구글친구", "dev-google");
+		assertThat(owner("GOOGLE", sub)).isEqualTo(uid);
+		assertThat(jdbc.queryForObject("SELECT email FROM user_identities WHERE provider = 'GOOGLE' AND subject = ?",
+				String.class, sub)).isEqualTo("g@example.com");
+
+		// An ID token issued to another app is refused.
+		String other = providerId();
+		assertThat(googleCallback(null, other, "x@example.com", true, "남", "someone-else").getRedirectedUrl())
+				.endsWith("/login?social_error");
+		assertThat(owner("GOOGLE", other)).isNull();
+	}
+
+	@Test
+	void googleReauthenticationAndLinkingAskToPickTheAccount() throws Exception {
+		String authorize = "/oauth2/authorize?response_type=code&client_id=" + CLIENT + "&redirect_uri=" + REDIRECT
+				+ "&scope=openid&state=st1&prompt=login&code_challenge=" + s256(VERIFIER) + "&code_challenge_method=S256";
+		Cookie pending = mvc.perform(get(URI.create(authorize)).accept(MediaType.TEXT_HTML)).andReturn().getResponse()
+				.getCookie("SESSION");
+		assertThat(mvc.perform(get("/oauth2/authorization/google").cookie(pending)).andReturn().getResponse()
+				.getRedirectedUrl()).contains("prompt=select_account");
+		assertThat(mvc.perform(get("/oauth2/authorization/google")).andReturn().getResponse().getRedirectedUrl())
+				.doesNotContain("prompt=");
+
+		String email = email();
+		String uid = signup(email, "password-1", "L");
+		Cookie session = login(email, "password-1");
+		mvc.perform(post("/account/link/google").with(csrf()).cookie(session))
+				.andExpect(redirectedUrl("/oauth2/authorization/google"));
+		String sub = providerId();
+		assertThat(googleSignIn(session, sub, email, true, "L", "dev-google").redirect()).endsWith("/");
+		assertThat(owner("GOOGLE", sub)).isEqualTo(uid);
+		assertThat(jdbc.queryForList("SELECT CONCAT(type, ':', detail) FROM security_events WHERE user_id = ? "
+				+ "AND type = 'LINKED'", String.class, uid)).containsExactly("LINKED:Google");
 	}
 
 	@Test
@@ -339,6 +393,31 @@ class SocialLoginTest extends IntegrationTest {
 		assertThat(cb.getRedirectedUrl()).doesNotContain("error");
 		Cookie next = cb.getCookie("SESSION");
 		return new SignIn(next != null ? next : session, cb.getRedirectedUrl());
+	}
+
+	private SignIn googleSignIn(Cookie session, String sub, String email, boolean verified, String name, String audience)
+			throws Exception {
+		MockHttpServletResponse cb = googleCallback(session, sub, email, verified, name, audience);
+		assertThat(cb.getRedirectedUrl()).doesNotContain("error");
+		Cookie next = cb.getCookie("SESSION");
+		return new SignIn(next != null ? next : session, cb.getRedirectedUrl());
+	}
+
+	/** As {@link #start}, for Google: its ID token must answer the nonce of the authorization request. */
+	private MockHttpServletResponse googleCallback(Cookie session, String sub, String email, boolean verified,
+			String name, String audience) throws Exception {
+		var req = get("/oauth2/authorization/google");
+		if (session != null) {
+			req.cookie(session);
+		}
+		MockHttpServletResponse go = mvc.perform(req).andExpect(status().is3xxRedirection()).andReturn().getResponse();
+		assertThat(go.getRedirectedUrl()).startsWith("https://google.test/authorize").contains("scope=openid");
+		Cookie s = go.getCookie("SESSION") != null ? go.getCookie("SESSION") : session;
+		var params = UriComponentsBuilder.fromUriString(go.getRedirectedUrl()).build().getQueryParams();
+		String state = URLDecoder.decode(params.getFirst("state"), StandardCharsets.UTF_8);
+		String nonce = URLDecoder.decode(params.getFirst("nonce"), StandardCharsets.UTF_8);
+		return mvc.perform(get("/login/oauth2/code/google").param("state", state).cookie(s)
+				.param("code", SocialStub.google(audience, nonce, sub, email, verified, name))).andReturn().getResponse();
 	}
 
 	/** /oauth2/authorization/{provider} → (provider signs the user in) → /login/oauth2/code/{provider}. */

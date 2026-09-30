@@ -76,13 +76,13 @@ Do not unnecessarily reveal whether an email/account exists.
 
 ## Account Linking
 Never auto-merge solely on matching email.
-Explicit linking is the default. Kakao / Naver sign-ins are keyed by the provider's user id only; a first
+Explicit linking is the default. Kakao / Naver / Google sign-ins are keyed by the provider's user id only; a first
 sign-in always creates a new account, even when its email equals an existing one (`oauth-oidc.md`).
-Linking (Phase 5, account page, Kakao / Naver only):
+Linking (Phase 5, account page, Kakao / Naver / Google):
 - Started by the signed-in user (POST + CSRF) with a sign-in in the last 10 minutes, else `/login?reauth`. The
   pending link lives in the session for 10 minutes and is consumed by the next provider callback; the login page
-  clears it. The provider is asked to show its login (Kakao `prompt=login`, Naver `auth_type=reauthenticate`), so
-  the user picks the provider account. The OAuth `state` binds the callback to that browser.
+  clears it. The provider is asked to show its login (Kakao `prompt=login`, Naver `auth_type=reauthenticate`;
+  Google, which can't be made to, `prompt=select_account`), so the user picks the provider account. The OAuth `state` binds the callback to that browser.
 - The callback attaches the identity only to the account still signed in there. Refused: an identity that belongs
   to another account (`link_error=taken`, never moved), a second identity of the same provider (`exists`).
 - Unlinking (same 10-minute rule) needs another sign-in method left; the users row is locked so two concurrent
@@ -94,7 +94,7 @@ Linking (Phase 5, account page, Kakao / Naver only):
 
 ## Security Events (Phase 7, `SecurityEvents`, V5 `security_events`)
 Shown to the account's owner ("최근 보안 활동", last 10 on `/account`): sign-in (method + browser kind), password
-sign-in failure of an existing active email account, password change / reset, Kakao / Naver linked / unlinked,
+sign-in failure of an existing active email account, password change / reset, Kakao / Naver / Google linked / unlinked,
 device signed out, refresh-token reuse that revoked a login (product name). No IP, no tokens. Kept 90 days
 (`ExpiredDataCleanup`), deleted with the account. Unknown-email failures are not recorded. A flood of wrong
 passwords for one account is bounded by the per-IP login limit only.

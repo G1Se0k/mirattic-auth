@@ -51,7 +51,8 @@ Create the central Mirattic Auth project and finalize the first deployable authe
 - Validation: Codex quota exhausted → Claude reviewed directly (not a PASS). Auth 60, Flow 117, Sync 63 tests.
 
 ### Phase 6 — External Providers
-- Google
+- Google — code done 2026-09-30 (OIDC, sign-in + link/unlink, `oauth-oidc.md`); needs the Google Cloud OAuth client
+  and `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` in the host `.env` before the next deploy
 - Apple
 - explicit linking
 
@@ -189,7 +190,10 @@ Not changed: Sync / Flow code (user request: do not touch yet).
 - Flow: generated texts (activity chat lines, comment notifications) created before 2026-09-30 keep a deleted
   user's former name; newer ones show "탈퇴한 사용자" (user decision 2026-09-30, Flow phase 19).
 - Device list: browsers signed in before 2026-09-29 (Phase 5) show "알 수 없는 브라우저" until they sign in again.
-  App logins show the product name only (the token call comes from the product's server, not the device).
+  App logins are grouped per product and browser (2026-09-30, `api.md` "Devices"); logins from before that show the
+  product name only, one row each, until they expire (≤ 30 days) or are ended.
+- Google re-authentication (`prompt=login`, e.g. Sync / Flow account deletion) only makes the user pick the Google
+  account again; a browser signed in to Google passes without a password (Google offers no forced login).
 - Linking races with a database deadlock (a first sign-in of the same Kakao account at the same moment) end in a
   500 instead of `link_error=taken`; nothing is half-written.
 - Disabling a user does not end an existing Auth browser session; `/oauth2/authorize` still issues a code, but the code can no longer be exchanged (ACTIVE check at token issuance). Session cleanup belongs to the disable/delete feature (Phase 5).
@@ -205,7 +209,8 @@ Not changed: Sync / Flow code (user request: do not touch yet).
    a Sync / Flow sign-in with the new key, then `deploy/rotate-signing-key.sh retire` from 2026-10-01.
 2. Naver review (user; screenshots taken 2026-09-29, consent items: 이용자 식별자, 이름, 별명). Kakao console: app
    name "Mirattic", privacy URL https://auth.mirattic.com/privacy. Kakao unlink webhook: decided not to use.
-3. Off-host backup copy (DB + signing key, encrypted); Phase 6 (Google / Apple) when their consoles are ready.
+3. Off-host backup copy (DB + signing key, encrypted); Google: create the OAuth client (`deployment.md`), put its
+   id / secret in the host `.env`, then deploy; Apple when its console is ready.
 4. Codex Sol review of Phases 5 and 7 when quota returns.
 5. Optional: adding email + password to a Kakao / Naver-only account (needs a decision on email ownership);
    DMARC `p=quarantine`; rotate the Resend API key (shared in chat).

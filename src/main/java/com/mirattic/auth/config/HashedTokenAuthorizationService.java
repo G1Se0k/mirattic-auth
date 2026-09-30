@@ -25,6 +25,8 @@ import org.springframework.security.oauth2.server.authorization.OAuth2Authorizat
 import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2ClientAuthenticationToken;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 /**
  * Stores only SHA-256 of every token value (codes, access, refresh, ID tokens); lookups hash the
@@ -92,7 +94,19 @@ class HashedTokenAuthorizationService implements OAuth2AuthorizationService {
 				}
 			}
 			delegate.save(hashed);
+			if (rows.isEmpty()) {
+				tagDevice(hashed.getId());
+			}
 		});
+	}
+
+	/** A new login started by a browser's /oauth2/authorize: remember which browser (DeviceCookie). */
+	private void tagDevice(String authorizationId) {
+		if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attrs
+				&& attrs.getRequest().getAttribute(DeviceCookie.ATTRIBUTE) instanceof DeviceCookie.Device device) {
+			jdbc.update("UPDATE oauth2_authorization SET device_id = ?, device_label = ? WHERE id = ?", device.id(),
+					device.label(), authorizationId);
+		}
 	}
 
 	@Override

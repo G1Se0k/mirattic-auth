@@ -6,6 +6,16 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import com.nimbusds.jose.JOSEException;
+import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.JWSHeader;
+import com.nimbusds.jose.crypto.RSASSASigner;
+import com.nimbusds.jose.jwk.JWKSet;
+import com.nimbusds.jose.jwk.RSAKey;
+import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
+import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.SignedJWT;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -13,14 +23,18 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * Stand-in for Kakao's and Naver's token and user-info endpoints, and for the products' account-deletion endpoints
- * (JDK HTTP server, one per test JVM).
+ * Stand-in for Kakao's, Naver's and Google's token and user-info endpoints (Google's with a signed ID token and its
+ * JWK set), and for the products' account-deletion endpoints (JDK HTTP server, one per test JVM).
  */
 final class SocialStub {
 
 	private static final HttpServer SERVER;
 	/** code → user-info JSON; the access token is "at-" + code. */
 	private static final Map<String, String> PROFILES = new ConcurrentHashMap<>();
+	/** code → Google ID token issued with it. */
+	private static final Map<String, String> ID_TOKENS = new ConcurrentHashMap<>();
+	static final String GOOGLE_ISSUER = "https://accounts.google.com";
+	private static final RSAKey GOOGLE_KEY;
 	/** Product ("flow" | "sync") → the answer its deletion endpoint gives: status and body. */
 	static final Map<String, Map.Entry<Integer, String>> DELETION = new ConcurrentHashMap<>();
 	/** Deletion orders received, in order: product + " " + bearer token. */
@@ -29,6 +43,11 @@ final class SocialStub {
 	static volatile Runnable duringDeletion = () -> { };
 
 	static {
+		try {
+			GOOGLE_KEY = new RSAKeyGenerator(2048).keyID("google-test").generate();
+		} catch (JOSEException e) {
+			throw new IllegalStateException(e);
+		}
 		try {
 			SERVER = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
 			SERVER.createContext("/token", ex -> {
@@ -43,8 +62,11 @@ final class SocialStub {
 					send(ex, 400, "{\"error\":\"invalid_grant\"}");
 					return;
 				}
-				send(ex, 200, "{\"access_token\":\"at-" + code + "\",\"token_type\":\"bearer\",\"expires_in\":3600}");
+				String idToken = ID_TOKENS.get(code);
+				send(ex, 200, "{\"access_token\":\"at-" + code + "\",\"token_type\":\"bearer\",\"expires_in\":3600"
+						+ (idToken == null ? "" : ",\"id_token\":\"" + idToken + "\"") + "}");
 			});
+			SERVER.createContext("/jwks", ex -> send(ex, 200, new JWKSet(GOOGLE_KEY.toPublicJWK()).toString()));
 			SERVER.createContext("/me", ex -> {
 				String auth = String.valueOf(ex.getRequestHeaders().getFirst("Authorization"));
 				String profile = PROFILES.get(auth.replace("Bearer at-", ""));
@@ -81,6 +103,28 @@ final class SocialStub {
 	static String code(String userInfoJson) {
 		String code = UUID.randomUUID().toString();
 		PROFILES.put(code, userInfoJson);
+		return code;
+	}
+
+	/**
+	 * A Google sign-in: an ID token for `clientId` answering `nonce` (from the authorization request), and UserInfo
+	 * with the same `sub`. Returns the authorization code.
+	 */
+	static String google(String clientId, String nonce, String sub, String email, boolean verified, String name) {
+		String code = code("{\"sub\":\"%s\",\"email\":\"%s\",\"email_verified\":%s,\"name\":\"%s\"}"
+				.formatted(sub, email, verified, name));
+		try {
+			JWTClaimsSet claims = new JWTClaimsSet.Builder().issuer(GOOGLE_ISSUER).audience(clientId).subject(sub)
+					.issueTime(new Date()).expirationTime(new Date(System.currentTimeMillis() + 3_600_000))
+					.claim("nonce", nonce).claim("email", email).claim("email_verified", verified).claim("name", name)
+					.build();
+			SignedJWT jwt = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.RS256).keyID(GOOGLE_KEY.getKeyID()).build(),
+					claims);
+			jwt.sign(new RSASSASigner(GOOGLE_KEY));
+			ID_TOKENS.put(code, jwt.serialize());
+		} catch (JOSEException e) {
+			throw new IllegalStateException(e);
+		}
 		return code;
 	}
 

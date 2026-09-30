@@ -11,12 +11,18 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.jdbc.core.JdbcOperations;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.FactorGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
+import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest;
+import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService;
+import org.springframework.security.oauth2.core.oidc.OidcUserInfo;
+import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
@@ -28,7 +34,7 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 /**
- * Kakao / Naver sign-in. The provider's stable user id is the identity (provider, subject); the first sign-in
+ * Kakao / Naver / Google sign-in. The provider's stable user id is the identity (provider, subject); the first sign-in
  * creates a new Mirattic account. Never matched to an existing account by email (docs/security.md, linking).
  * The resulting principal's name is the Mirattic UID, so tokens carry it as `sub` like a password login.
  * Link mode (a signed-in user asked for it on the account page, {@link #LINK}): the identity is added to that
@@ -45,7 +51,7 @@ public class SocialLogin implements OAuth2UserService<OAuth2UserRequest, OAuth2U
 	public static final String LINK = SocialLogin.class.getName() + ".link";
 	static final Duration LINK_TTL = Duration.ofMinutes(10);
 
-	/** `provider`: the registration id, kakao | naver. */
+	/** `provider`: the registration id, kakao | naver | google. */
 	public record Link(String uid, String provider, Instant at) implements Serializable {
 	}
 
@@ -60,12 +66,50 @@ public class SocialLogin implements OAuth2UserService<OAuth2UserRequest, OAuth2U
 		this.events = events;
 	}
 
+	/** Kakao / Naver (plain OAuth 2: the profile comes from their user-info endpoint). */
 	@Override
 	public OAuth2User loadUser(OAuth2UserRequest request) {
-		Map<String, Object> attributes = fetch.loadUser(request).getAttributes();
+		return new DefaultOAuth2User(authorities(), Map.of("uid", signIn(request, fetch.loadUser(request).getAttributes())),
+				"uid");
+	}
+
+	/**
+	 * Google (OpenID Connect, which Google requires): Spring's OIDC login provider has already checked the ID token
+	 * (signature, issuer, audience, nonce) before this runs; OidcUserService reads UserInfo; the rest is as for Kakao /
+	 * Naver. Not a token-validation boundary for other callers. The principal's name is the Mirattic UID.
+	 */
+	public OAuth2UserService<OidcUserRequest, OidcUser> oidc() {
+		OidcUserService fetchOidc = new OidcUserService();
+		return request -> {
+			OidcUser google = fetchOidc.loadUser(request);
+			String uid = signIn(request, google.getClaims());
+			return new DefaultOidcUser(authorities(), google.getIdToken(), new OidcUserInfo(Map.of("uid", uid)), "uid");
+		};
+	}
+
+	/** Display name of a provider as stored (KAKAO | NAVER | GOOGLE), for pages and the security log. */
+	public static String providerName(String provider) {
+		return switch (provider) {
+			case "KAKAO" -> "카카오";
+			case "NAVER" -> "네이버";
+			case "GOOGLE" -> "Google";
+			default -> provider;
+		};
+	}
+
+	/** The factor's time becomes the ID token's auth_time (and FreshLoginFilter's sign-in time). */
+	private static List<GrantedAuthority> authorities() {
+		return List.of(new SimpleGrantedAuthority("ROLE_USER"),
+				FactorGrantedAuthority.withAuthority(FactorGrantedAuthority.AUTHORIZATION_CODE_AUTHORITY)
+						.issuedAt(Instant.now()).build());
+	}
+
+	/** Finds, creates or links the account of this provider sign-in; returns its Mirattic UID. */
+	private String signIn(OAuth2UserRequest request, Map<String, Object> attributes) {
 		Profile p = switch (request.getClientRegistration().getRegistrationId()) {
 			case "kakao" -> kakao(attributes);
 			case "naver" -> naver(attributes);
+			case "google" -> google(attributes);
 			default -> throw failure("unknown provider");
 		};
 		if (p.subject() == null || p.subject().isBlank()) {
@@ -93,11 +137,7 @@ public class SocialLogin implements OAuth2UserService<OAuth2UserRequest, OAuth2U
 		if (!"ACTIVE".equals(status)) {
 			throw failure("account not active");
 		}
-		// The factor's time becomes the ID token's auth_time (and FreshLoginFilter's sign-in time).
-		return new DefaultOAuth2User(List.of(new SimpleGrantedAuthority("ROLE_USER"),
-				FactorGrantedAuthority.withAuthority(FactorGrantedAuthority.AUTHORIZATION_CODE_AUTHORITY)
-						.issuedAt(Instant.now()).build()),
-				Map.of("uid", uid), "uid");
+		return uid;
 	}
 
 	/**
@@ -142,7 +182,7 @@ public class SocialLogin implements OAuth2UserService<OAuth2UserRequest, OAuth2U
 		jdbc.update("INSERT INTO user_identities "
 				+ "(id, user_id, provider, subject, email, password_hash, created_at, updated_at) "
 				+ "VALUES (UUID(), ?, ?, ?, ?, NULL, NOW(6), NOW(6))", uid, p.provider(), p.subject(), p.email());
-		events.record(uid, SecurityEvents.Type.LINKED, "KAKAO".equals(p.provider()) ? "카카오" : "네이버");
+		events.record(uid, SecurityEvents.Type.LINKED, providerName(p.provider()));
 	}
 
 	/**
@@ -196,10 +236,16 @@ public class SocialLogin implements OAuth2UserService<OAuth2UserRequest, OAuth2U
 		return new Profile("NAVER", str(r.get("id")), str(r.get("email")), name);
 	}
 
+	/** Google: `sub` is the identity (never the email, per Google); the email is kept only when Google verified it. */
+	static Profile google(Map<String, Object> a) {
+		String email = Boolean.TRUE.equals(a.get("email_verified")) ? str(a.get("email")) : null;
+		return new Profile("GOOGLE", str(a.get("sub")), email, str(a.get("name")));
+	}
+
 	private static String displayName(Profile p) {
 		String n = p.name() == null ? "" : p.name().strip();
 		if (n.isEmpty()) {
-			return "KAKAO".equals(p.provider()) ? "카카오 사용자" : "네이버 사용자";
+			return providerName(p.provider()) + " 사용자";
 		}
 		return n.length() > 64 ? n.substring(0, 64) : n;
 	}

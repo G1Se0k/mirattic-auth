@@ -31,6 +31,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
@@ -69,6 +70,10 @@ public abstract class IntegrationTest {
 			registry.add(prefix + ".token-uri", () -> SocialStub.url("/token"));
 			registry.add(prefix + ".user-info-uri", () -> SocialStub.url("/me"));
 		}
+		registry.add("spring.security.oauth2.client.provider.google.authorization-uri", () -> "https://google.test/authorize");
+		registry.add("spring.security.oauth2.client.provider.google.token-uri", () -> SocialStub.url("/token"));
+		registry.add("spring.security.oauth2.client.provider.google.user-info-uri", () -> SocialStub.url("/me"));
+		registry.add("spring.security.oauth2.client.provider.google.jwk-set-uri", () -> SocialStub.url("/jwks"));
 		registry.add("auth.account-deletion.flow-url", () -> SocialStub.url("/flow/delete"));
 		registry.add("auth.account-deletion.sync-url", () -> SocialStub.url("/sync/delete"));
 		// Every test logs in from 127.0.0.1; the limiter itself is covered by AuthRateLimitFilterTest.
@@ -139,11 +144,20 @@ public abstract class IntegrationTest {
 
 	/** /oauth2/authorize with state=st1, nonce=n1, PKCE S256; returns the code. */
 	protected String authorize(Cookie session, String scope) throws Exception {
-		String location = mvc.perform(get(URI.create("/oauth2/authorize?response_type=code&client_id=" + CLIENT
+		return code(authorizeWith(scope, session));
+	}
+
+	/** /oauth2/authorize as {@link #authorize(Cookie, String)}, sending these cookies (session, device). */
+	protected MockHttpServletResponse authorizeWith(String scope, Cookie... cookies) throws Exception {
+		return mvc.perform(get(URI.create("/oauth2/authorize?response_type=code&client_id=" + CLIENT
 						+ "&redirect_uri=" + REDIRECT + "&scope=" + scope.replace(" ", "%20") + "&state=st1&nonce=n1"
-						+ "&code_challenge=" + s256(VERIFIER) + "&code_challenge_method=S256")).cookie(session))
+						+ "&code_challenge=" + s256(VERIFIER) + "&code_challenge_method=S256")).cookie(cookies))
 				.andExpect(status().is3xxRedirection())
-				.andReturn().getResponse().getRedirectedUrl();
+				.andReturn().getResponse();
+	}
+
+	protected static String code(MockHttpServletResponse authorized) {
+		String location = authorized.getRedirectedUrl();
 		assertThat(location).startsWith(REDIRECT + "?code=").contains("state=st1");
 		return URLDecoder.decode(UriComponentsBuilder.fromUriString(location).build().getQueryParams().getFirst("code"),
 				StandardCharsets.UTF_8);

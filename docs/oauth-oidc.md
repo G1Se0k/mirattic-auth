@@ -62,11 +62,14 @@ Desktop app is not served.
 SSO comes from the Auth browser session.
 Product services do not share their own cookies.
 
-## Social Login (Kakao / Naver)
-Auth is itself an OAuth client of Kakao and Naver (Spring Security `oauth2Login`, `SocialLogin`), so every
-product gets them through the normal Auth login page. Buttons: `/oauth2/authorization/{kakao|naver}`;
-callback `https://auth.mirattic.com/login/oauth2/code/{kakao|naver}` (must be registered in each console).
-- Identity = (`KAKAO`|`NAVER`, provider's stable user id). The first sign-in creates a new Mirattic account
+## Social Login (Kakao / Naver / Google)
+Auth is itself an OAuth client of Kakao, Naver and Google (Spring Security `oauth2Login`, `SocialLogin`), so every
+product gets them through the normal Auth login page. Buttons: `/oauth2/authorization/{kakao|naver|google}`;
+callback `https://auth.mirattic.com/login/oauth2/code/{kakao|naver|google}` (must be registered in each console).
+- Google (2026-09-30) is OpenID Connect (Google requires `openid`; scopes `openid profile email`): Spring's
+  OIDC login provider checks the ID token (signature from Google's JWKS, issuer, audience, nonce), then UserInfo is read.
+  Identity = `sub` (Google: never the email); the email is kept as contact only when `email_verified` is true.
+- Identity = (`KAKAO`|`NAVER`|`GOOGLE`, provider's stable user id). The first sign-in creates a new Mirattic account
   (name from the nickname, contact email if the user consented); later sign-ins find it by that pair only.
 - Never matched by email: the same email as a password account is a separate account (`security.md`).
 - No password: the account page hides password change; password reset only concerns LOCAL identities.
@@ -80,7 +83,9 @@ callback `https://auth.mirattic.com/login/oauth2/code/{kakao|naver}` (must be re
 however recent, and sends the user through the login page (`FreshLoginFilter`). Only the replay of that very
 request (same parameters) after a sign-in newer than the demand passes, once; an abandoned demand can't be
 satisfied later. With Kakao / Naver the demand is forwarded (`SocialReauth`: Kakao `prompt=login`, Naver
-`auth_type=reauthenticate`) so the provider asks for credentials too. Clients still check `auth_time` themselves.
+`auth_type=reauthenticate`) so the provider asks for credentials too. Google has no such parameter (`prompt` is
+none | consent | select_account), so it gets `prompt=select_account`: the user picks the account again, but a browser
+already signed in to Google is not asked for its password. Clients still check `auth_time` themselves.
 Used by: Sync account deletion (`auth_time` ≤ 5 min, same `sub`), Flow withdrawal (same user, `auth_time` after the
 withdrawal started), Flow's first login after a logout / withdrawal in that browser.
 

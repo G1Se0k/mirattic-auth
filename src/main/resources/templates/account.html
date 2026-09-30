@@ -32,9 +32,9 @@
         <li th:if="${account.hasPassword()}">
           <div><strong>이메일</strong><p th:text="${account.email}">you@example.com</p></div>
         </li>
-        <li th:each="p : ${ {'kakao', 'naver'} }" th:with="linked=${account.providers.contains(p.toUpperCase())}">
+        <li th:each="p : ${ {'kakao', 'naver', 'google'} }" th:with="linked=${account.providers.contains(p.toUpperCase())}">
           <div>
-            <strong th:text="${p == 'kakao' ? '카카오' : '네이버'}">카카오</strong>
+            <strong th:text="${p == 'kakao' ? '카카오' : p == 'naver' ? '네이버' : 'Google'}">카카오</strong>
             <p th:text="${linked ? '연결됨' : '연결 안 됨'}">연결됨</p>
           </div>
           <form th:if="${!linked or account.providers.size() > 1}" method="post"

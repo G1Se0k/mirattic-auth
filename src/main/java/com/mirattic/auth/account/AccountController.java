@@ -32,7 +32,7 @@ class AccountController {
 	private final AccountDeletion deletion;
 	private final SecurityEvents events;
 	private final SecurityContextLogoutHandler logout = new SecurityContextLogoutHandler();
-	private static final Set<String> PROVIDERS = Set.of("kakao", "naver");
+	private static final Set<String> PROVIDERS = Set.of("kakao", "naver", "google");
 	private static final Duration FRESH = Duration.ofMinutes(10);
 
 	private final RequestCache requestCache = new HttpSessionRequestCache();

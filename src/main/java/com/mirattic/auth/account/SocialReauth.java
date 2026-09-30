@@ -17,7 +17,9 @@ import org.springframework.security.web.savedrequest.SavedRequest;
  * old sign-in and the request waits in the session), the provider must ask for credentials too — otherwise its
  * own session signs the user straight back in and the new `auth_time` proves nothing.
  * Also when adding Kakao / Naver to an account (SocialLogin link mode): the user picks which provider account.
- * Kakao: `prompt=login`. Naver: `auth_type=reauthenticate`.
+ * Kakao: `prompt=login`. Naver: `auth_type=reauthenticate`. Google has no way to demand its login screen (its
+ * `prompt` takes none | consent | select_account only), so it gets `select_account`: the user at least picks the
+ * account again, and an unlocked browser signed in to Google passes (docs/security.md).
  */
 public class SocialReauth implements OAuth2AuthorizationRequestResolver {
 
@@ -54,6 +56,7 @@ public class SocialReauth implements OAuth2AuthorizationRequestResolver {
 		switch (String.valueOf(auth.getAttributes().get(OAuth2ParameterNames.REGISTRATION_ID))) {
 			case "kakao" -> extra.put("prompt", "login");
 			case "naver" -> extra.put("auth_type", "reauthenticate");
+			case "google" -> extra.put("prompt", "select_account");
 			default -> { }
 		}
 		return OAuth2AuthorizationRequest.from(auth).additionalParameters(extra).build();

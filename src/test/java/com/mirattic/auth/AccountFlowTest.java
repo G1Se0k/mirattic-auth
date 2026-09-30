@@ -28,6 +28,7 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -287,6 +288,38 @@ class AccountFlowTest extends IntegrationTest {
 				.digest(sessionId(laptop).getBytes(StandardCharsets.UTF_8)));
 		mvc.perform(post("/account/devices/end").with(csrf()).cookie(laptop).param("id", laptopId));
 		mvc.perform(get("/account").cookie(laptop)).andExpect(status().isOk());
+	}
+
+	@Test
+	void appLoginsFromOneBrowserListAsOneDeviceAndEndTogether() throws Exception {
+		String email = email();
+		String uid = signup(email, "password-1", "D");
+		Cookie laptop = login(email, "password-1");
+		MockHttpServletResponse first = authorizeWith("openid profile", laptop);
+		Cookie device = first.getCookie("MIRATTIC_DEVICE");
+		assertThat(device).isNotNull();
+		assertThat(device.isHttpOnly()).isTrue();
+		exchange(code(first));
+		// The product lost its token without revoking it (reinstalled) and signs in again from the same browser.
+		exchange(code(authorizeWith("openid profile", laptop, device)));
+		// Another computer.
+		exchange(code(authorizeWith("openid profile", login(email, "password-1"))));
+		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM oauth2_authorization WHERE principal_name = ?",
+				Integer.class, uid)).isEqualTo(3);
+
+		String page = mvc.perform(get("/account").cookie(laptop)).andExpect(status().isOk())
+				.andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+		assertThat(Pattern.compile("<strong>Mirattic Sync · [^<]+</strong>").matcher(page).results().count()).isEqualTo(2);
+		String deviceId = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+				.digest(device.getValue().getBytes(StandardCharsets.UTF_8)));
+		String newest = jdbc.queryForObject("SELECT id FROM oauth2_authorization WHERE principal_name = ? AND device_id = ? "
+				+ "ORDER BY refresh_token_issued_at DESC LIMIT 1", String.class, uid, deviceId);
+		assertThat(page).contains("value=\"" + newest + "\"");
+
+		mvc.perform(post("/account/devices/end").with(csrf()).cookie(laptop).param("id", newest))
+				.andExpect(redirectedUrl("/account?ended#devices"));
+		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM oauth2_authorization WHERE principal_name = ?",
+				Integer.class, uid)).isEqualTo(1);
 	}
 
 	@Test

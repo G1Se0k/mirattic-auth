@@ -31,8 +31,8 @@ fi
 # Secret for hashing signup networks (AccountService.ipKeyHash): made here once, never leaves the host.
 grep -q '^SIGNUP_IP_KEY=..*' .env || (umask 077; echo "SIGNUP_IP_KEY=$(openssl rand -hex 32)" >> .env)
 
-for key in KAKAO_CLIENT_ID KAKAO_CLIENT_SECRET NAVER_CLIENT_ID NAVER_CLIENT_SECRET; do
-  grep -q "^$key=..*" .env || { echo "deploy/.env: $key empty (Kakao / Naver sign-in). Not deploying." >&2; exit 1; }
+for key in KAKAO_CLIENT_ID KAKAO_CLIENT_SECRET NAVER_CLIENT_ID NAVER_CLIENT_SECRET GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET; do
+  grep -q "^$key=..*" .env || { echo "deploy/.env: $key empty (Kakao / Naver / Google sign-in). Not deploying." >&2; exit 1; }
 done
 
 if ! grep -q '^MAIL_HOST=..*' .env || ! grep -q '^MAIL_PASSWORD=..*' .env; then

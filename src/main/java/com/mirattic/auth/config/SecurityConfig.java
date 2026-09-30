@@ -69,6 +69,7 @@ class SecurityConfig {
 									ctx.getAccessToken().getScopes(), OAuth2ErrorCodes.INVALID_TOKEN)))));
 				})
 				.authorizeHttpRequests(a -> a.anyRequest().authenticated())
+				.addFilterBefore(new DeviceCookie(), SecurityContextHolderFilter.class)
 				.addFilterAfter(new FreshLoginFilter(Clock.systemUTC()), SecurityContextHolderFilter.class)
 				.addFilterAfter(new ActiveAccountFilter(jdbc), SecurityContextHolderFilter.class)
 				.oauth2ResourceServer(r -> r.jwt(withDefaults()))
@@ -94,11 +95,11 @@ class SecurityConfig {
 				.formLogin(f -> f.loginPage("/login")
 						.successHandler(devices.recording(new SavedRequestAwareAuthenticationSuccessHandler()))
 						.failureHandler(events.failedPasswords(new SimpleUrlAuthenticationFailureHandler("/login?error"))))
-				// Kakao / Naver: /oauth2/authorization/{kakao|naver} → provider → /login/oauth2/code/{id}.
+				// Kakao / Naver / Google: /oauth2/authorization/{id} → provider → /login/oauth2/code/{id}.
 				.oauth2Login(o -> o.loginPage("/login").failureHandler(SocialLogin.failureHandler())
 						.successHandler(devices.recording(new SavedRequestAwareAuthenticationSuccessHandler()))
 						.authorizationEndpoint(a -> a.authorizationRequestResolver(new SocialReauth(registrations)))
-						.userInfoEndpoint(u -> u.userService(socialLogin)))
+						.userInfoEndpoint(u -> u.userService(socialLogin).oidcUserService(socialLogin.oidc())))
 				// Reset links carry a token in the URL; never leak it through Referer.
 				.headers(h -> h.referrerPolicy(r -> r.policy(ReferrerPolicy.NO_REFERRER)))
 				.build();

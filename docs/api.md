@@ -32,10 +32,15 @@ Server-rendered on `/account` ("로그인된 기기"), no JSON API.
 - Browser: each Auth browser session of the user (Spring Session). The browser and OS ("Chrome · Windows", from
   User-Agent) and the sign-in time are stored on the session at sign-in (password or Kakao / Naver); older
   sessions show "알 수 없는 브라우저". Identified in the page by SHA-256 of the session id (the id is the cookie).
-- App: each `oauth2_authorization` of the user with a live refresh token, named by the client (Mirattic Sync /
-  Flow). Last used = last refresh.
-- `POST /account/devices/end` (session + CSRF, `id`): ends that browser session or deletes that authorization (its
-  access token lapses within 15 min). Only the user's own; this browser is ended by `/logout`, not here.
+- App: each `oauth2_authorization` of the user with a live refresh token, named by the client and the browser that
+  started it ("Mirattic Sync · Chrome · Mac"). Last used = last refresh. Logins of one product from the same browser
+  are one row (the most recently used one): `/oauth2/authorize` sets `MIRATTIC_DEVICE` (random, HttpOnly, 400 days, path
+  `/oauth2/authorize`) and the new authorization stores its SHA-256 and the browser kind (`device_id`,
+  `device_label`, V6). A product that signs in again without revoking (reinstalled, storage cleared, sign-in
+  abandoned) no longer lists the computer twice. Logins from before V6 have no device and stay one row each.
+- `POST /account/devices/end` (session + CSRF, `id`): ends that browser session or deletes that authorization and the
+  other authorizations of the same product and browser (access tokens lapse within 15 min). Only the user's own;
+  this browser is ended by `/logout`, not here.
 
 ## Sign-in Methods (Phase 5)
 Server-rendered on `/account` ("로그인 방법"). Rules in `security.md` "Account Linking".

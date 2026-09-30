@@ -145,5 +145,6 @@ docker compose up -d                                        # MySQL 8.4 on 3307 
 | `AUTH_MAIL_FROM` | `noreply@mirattic.com` |
 | `SYNC_CLIENT_SECRET_HASH` / `FLOW_CLIENT_SECRET_HASH` | none — required in prod; `{bcrypt}` hash, see `clients.md` |
 | `KAKAO_CLIENT_ID` / `KAKAO_CLIENT_SECRET` / `NAVER_CLIENT_ID` / `NAVER_CLIENT_SECRET` | local: dummies (buttons fail). Required in prod (`deploy.sh` refuses without them); copied from the old Flow backend's apps |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | local: dummy (button fails). Required in prod (`deploy.sh` refuses without them). Google Cloud console → OAuth client "Web application", redirect URI `https://auth.mirattic.com/login/oauth2/code/google`, consent screen scopes `openid`, `.../auth/userinfo.email`, `.../auth/userinfo.profile` |
 | `FLOW_ACCOUNT_DELETION_URL` / `SYNC_ACCOUNT_DELETION_URL` | optional; default `https://{flow,sync}.mirattic.com/api/internal/account-deletion` (`api.md` "Account Deletion"). Local profile: the products' dev ports |
 | `SIGNUP_IP_KEY` | HMAC key for signup-per-network hashes; `deploy.sh` generates it once on the host. Local/tests: random |
