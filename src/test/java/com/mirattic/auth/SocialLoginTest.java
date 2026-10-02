@@ -184,10 +184,9 @@ class SocialLoginTest extends IntegrationTest {
 				.andExpect(content().string(Matchers.containsString("/oauth2/authorization/kakao")))
 				.andExpect(content().string(Matchers.containsString("/oauth2/authorization/naver")))
 				.andExpect(content().string(Matchers.containsString("/oauth2/authorization/google")));
-		// Tab from the email lands on the password, not on the reset link.
+		// Email sign-in and sign-up are hidden from the page.
 		String page = mvc.perform(get("/login")).andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
-		assertThat(page.indexOf("id=\"username\"")).isLessThan(page.indexOf("id=\"password\""));
-		assertThat(page.indexOf("id=\"password\"")).isLessThan(page.indexOf("/password/reset"));
+		assertThat(page).doesNotContain("id=\"password\"", "/signup", "/password/reset");
 	}
 
 	@Test
