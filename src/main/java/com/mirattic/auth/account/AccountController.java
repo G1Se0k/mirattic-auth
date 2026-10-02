@@ -130,7 +130,9 @@ class AccountController {
 
 	@GetMapping("/account")
 	String account(Authentication auth, HttpSession session, Model model) {
-		model.addAttribute("account", accounts.find(auth.getName()));
+		AccountService.Account account = accounts.find(auth.getName());
+		model.addAttribute("account", account);
+		model.addAttribute("signInMethods", accounts.signInMethods(account));
 		model.addAttribute("devices", devices.list(auth.getName(), session.getId()));
 		model.addAttribute("events", events.recent(auth.getName()));
 		return "account";

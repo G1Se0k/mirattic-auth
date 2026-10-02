@@ -51,11 +51,14 @@ public class AccountService {
 	private final PasswordResetMailer mailer;
 	private final FindByIndexNameSessionRepository<? extends Session> sessions;
 	private final SecurityEvents events;
+	/** Off: a password (LOCAL) can't be used to sign in, so it doesn't count as a sign-in method. */
+	private final boolean emailLogin;
 
 	AccountService(JdbcTemplate jdbc, PasswordEncoder passwordEncoder, PasswordResetMailer mailer,
 			FindByIndexNameSessionRepository<? extends Session> sessions, SecurityEvents events,
-			@Value("${auth.signup-ip-key:}") String signupIpKey) {
+			@Value("${auth.signup-ip-key:}") String signupIpKey, @Value("${auth.email-login}") boolean emailLogin) {
 		this.events = events;
+		this.emailLogin = emailLogin;
 		if (signupIpKey.isBlank()) {
 			this.ipHashKey = new byte[32];
 			RANDOM.nextBytes(ipHashKey);
@@ -217,11 +220,16 @@ public class AccountService {
 	 * concurrent removals can't leave none). Like a password change, every other browser session and every app login
 	 * ends: whoever signed in with the removed method is out.
 	 */
+	/** How many of the account's methods can sign in now (the account page offers "해제" only above one). */
+	public long signInMethods(Account account) {
+		return account.providers().stream().filter(p -> emailLogin || !"LOCAL".equals(p)).count();
+	}
+
 	@Transactional
 	public void unlink(String userId, String provider, String currentSessionId) {
 		jdbc.queryForObject("SELECT id FROM users WHERE id = ? FOR UPDATE", String.class, userId);
-		Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM user_identities WHERE user_id = ?", Integer.class,
-				userId);
+		Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM user_identities WHERE user_id = ?"
+				+ (emailLogin ? "" : " AND provider <> 'LOCAL'"), Integer.class, userId);
 		if (count == null || count < 2) {
 			throw new AccountException("마지막 로그인 방법은 해제할 수 없습니다.");
 		}

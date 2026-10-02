@@ -97,6 +97,9 @@ Create the central Mirattic Auth project and finalize the first deployable authe
   default false; true in the `local` profile) hides the email form / sign-up link and closes POST `/login`,
   `/signup`, `/password/reset[/confirm]` (→ login page). The code stays; `EMAIL_LOGIN=true` reopens them.
   Email-only accounts can't sign in while it is off.
+  While off, a password doesn't count as a sign-in method: the last social method can't be unlinked.
+  Codex Sol (gpt-6-sol): round 1 concerns (that unlink gap; EMAIL_LOGIN not passed by compose; reset-confirm POST
+  untested) → fixed → round 2 PASS.
 
 ## Auth-only Work While Waiting, part 2 (2026-09-29)
 - Deploy automation: `.github/workflows/ci.yml` (test → arm64 image → SSH → `deploy/deploy.sh`, gated by repo variable `DEPLOY_ENABLED`), `deploy.sh` (first-run secret generation incl. client secrets, health check, rollback), `backup.sh` (daily DB + signing key, 7 days)

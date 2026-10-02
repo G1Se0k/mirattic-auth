@@ -37,7 +37,7 @@
             <strong th:text="${p == 'kakao' ? '카카오' : p == 'naver' ? '네이버' : 'Google'}">카카오</strong>
             <p th:text="${linked ? '연결됨' : '연결 안 됨'}">연결됨</p>
           </div>
-          <form th:if="${!linked or account.providers.size() > 1}" method="post"
+          <form th:if="${!linked or signInMethods > 1}" method="post"
                 th:action="@{/account/{a}/{p}(a=${linked ? 'unlink' : 'link'}, p=${p})}">
             <button type="submit" class="text-button" th:text="${linked ? '해제' : '연결'}">연결</button>
           </form>
