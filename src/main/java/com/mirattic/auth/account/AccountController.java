@@ -1,5 +1,6 @@
 package com.mirattic.auth.account;
 
+import org.springframework.beans.factory.annotation.Value;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
@@ -31,6 +32,7 @@ class AccountController {
 	private final Devices devices;
 	private final AccountDeletion deletion;
 	private final SecurityEvents events;
+	private final boolean emailLogin;
 	private final SecurityContextLogoutHandler logout = new SecurityContextLogoutHandler();
 	private static final Set<String> PROVIDERS = Set.of("kakao", "naver", "google");
 	private static final Duration FRESH = Duration.ofMinutes(10);
@@ -38,8 +40,9 @@ class AccountController {
 	private final RequestCache requestCache = new HttpSessionRequestCache();
 
 	AccountController(AccountService accounts, RegisteredClientRepository clients, Devices devices,
-			AccountDeletion deletion, SecurityEvents events) {
+			AccountDeletion deletion, SecurityEvents events, @Value("${auth.email-login}") boolean emailLogin) {
 		this.events = events;
+		this.emailLogin = emailLogin;
 		this.accounts = accounts;
 		this.clients = clients;
 		this.devices = devices;
@@ -71,6 +74,7 @@ class AccountController {
 		if (client != null) {
 			model.addAttribute("clientName", client.getClientName());
 		}
+		model.addAttribute("emailLogin", emailLogin);
 		return "login";
 	}
 

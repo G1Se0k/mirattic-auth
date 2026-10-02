@@ -15,7 +15,9 @@ import com.mirattic.auth.account.SecurityEvents;
 import com.mirattic.auth.account.SocialLogin;
 import com.mirattic.auth.account.SocialReauth;
 import org.springframework.boot.security.oauth2.server.authorization.autoconfigure.servlet.OAuth2AuthorizationServerProperties;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
+import org.springframework.http.HttpMethod;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.MediaType;
@@ -82,8 +84,17 @@ class SecurityConfig {
 	@Bean
 	@Order(2)
 	SecurityFilterChain defaultChain(HttpSecurity http, SocialLogin socialLogin,
-			ClientRegistrationRepository registrations, Devices devices, SecurityEvents events, JdbcOperations jdbc)
-			throws Exception {
+			ClientRegistrationRepository registrations, Devices devices, SecurityEvents events, JdbcOperations jdbc,
+			@Value("${auth.email-login}") boolean emailLogin) throws Exception {
+		if (emailLogin) {
+			http.formLogin(f -> f.loginPage("/login")
+					.successHandler(devices.recording(new SavedRequestAwareAuthenticationSuccessHandler()))
+					.failureHandler(events.failedPasswords(new SimpleUrlAuthenticationFailureHandler("/login?error"))));
+		} else {
+			// Social only: email sign-in, sign-up and reset are closed (the code stays; `auth.email-login` reopens them).
+			http.authorizeHttpRequests(a -> a.requestMatchers(HttpMethod.POST, "/login").denyAll()
+					.requestMatchers("/signup", "/password/reset", "/password/reset/confirm").denyAll());
+		}
 		return http
 				.addFilterAfter(new ActiveAccountFilter(jdbc), SecurityContextHolderFilter.class)
 				.authorizeHttpRequests(a -> a
@@ -92,9 +103,6 @@ class SecurityConfig {
 						.requestMatchers("/style.css", "/fonts/**", "/mark.svg", "/favicon-32.png",
 								"/apple-touch-icon.png").permitAll()
 						.anyRequest().authenticated())
-				.formLogin(f -> f.loginPage("/login")
-						.successHandler(devices.recording(new SavedRequestAwareAuthenticationSuccessHandler()))
-						.failureHandler(events.failedPasswords(new SimpleUrlAuthenticationFailureHandler("/login?error"))))
 				// Kakao / Naver / Google: /oauth2/authorization/{id} → provider → /login/oauth2/code/{id}.
 				.oauth2Login(o -> o.loginPage("/login").failureHandler(SocialLogin.failureHandler())
 						.successHandler(devices.recording(new SavedRequestAwareAuthenticationSuccessHandler()))

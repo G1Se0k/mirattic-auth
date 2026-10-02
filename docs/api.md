@@ -7,6 +7,9 @@ This file records Mirattic-specific account APIs.
 Passwords are typed only on Auth's own pages, never into product clients, so signup / reset / profile
 are server-rendered forms on `auth.mirattic.com` (form POST + CSRF token), not JSON APIs.
 
+Email routes (POST `/login`, `/signup`, `/password/reset[/confirm]`) are open only when `auth.email-login` is
+true (off in production: social sign-in only; closed routes redirect to `/login`).
+
 | Method | Path | Auth | Notes |
 |---|---|---|---|
 | GET/POST | `/login` | – | Spring Security form login (`username` = email). Any failure → `/login?error` (one generic message). After login the saved `/oauth2/authorize` request resumes. |

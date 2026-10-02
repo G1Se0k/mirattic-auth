@@ -98,6 +98,8 @@ server:
         http-only: true
 
 auth:
+  # Email sign-in, sign-up and password reset. Off: the login page offers Kakao / Naver / Google only.
+  email-login: ${EMAIL_LOGIN:false}
   # HMAC key for the signup-per-network hashes (signup_ips). Kept across restarts; random when unset (local, tests).
   signup-ip-key: ${SIGNUP_IP_KEY:}
   # POST /login, /signup, /password/reset[/confirm], /account/password per client IP

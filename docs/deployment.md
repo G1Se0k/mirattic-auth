@@ -148,3 +148,4 @@ docker compose up -d                                        # MySQL 8.4 on 3307 
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | local: dummy (button fails). Required in prod (`deploy.sh` refuses without them). Google Cloud console → OAuth client "Web application", redirect URI `https://auth.mirattic.com/login/oauth2/code/google`, consent screen scopes `openid`, `.../auth/userinfo.email`, `.../auth/userinfo.profile` |
 | `FLOW_ACCOUNT_DELETION_URL` / `SYNC_ACCOUNT_DELETION_URL` | optional; default `https://{flow,sync}.mirattic.com/api/internal/account-deletion` (`api.md` "Account Deletion"). Local profile: the products' dev ports |
 | `SIGNUP_IP_KEY` | HMAC key for signup-per-network hashes; `deploy.sh` generates it once on the host. Local/tests: random |
+| `EMAIL_LOGIN` | `true` reopens email sign-in / sign-up / reset. Default `false` (social only) |

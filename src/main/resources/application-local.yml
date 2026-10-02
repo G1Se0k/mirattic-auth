@@ -22,6 +22,7 @@ spring:
               post-logout-redirect-uris: ["http://127.0.0.1:3000/login?logout=success"]
 
 auth:
+  email-login: true
   signing-key:
     generate-if-missing: true
   account-deletion:

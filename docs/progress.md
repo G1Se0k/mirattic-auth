@@ -93,9 +93,10 @@ Create the central Mirattic Auth project and finalize the first deployable authe
 - Authorization Code + PKCE
 - asymmetric JWT signing
 - explicit account linking
-- 2026-10-02 (user): the login page offers social sign-in only (Kakao / Naver / Google). The email form and the
-  sign-up / reset links are hidden; the routes (`/login` POST, `/signup`, `/password/reset`) still work for
-  anyone who has the URL, and existing email accounts can still change their password on the account page.
+- 2026-10-02 (user): social sign-in only (Kakao / Naver / Google). `auth.email-login` (env `EMAIL_LOGIN`,
+  default false; true in the `local` profile) hides the email form / sign-up link and closes POST `/login`,
+  `/signup`, `/password/reset[/confirm]` (→ login page). The code stays; `EMAIL_LOGIN=true` reopens them.
+  Email-only accounts can't sign in while it is off.
 
 ## Auth-only Work While Waiting, part 2 (2026-09-29)
 - Deploy automation: `.github/workflows/ci.yml` (test → arm64 image → SSH → `deploy/deploy.sh`, gated by repo variable `DEPLOY_ENABLED`), `deploy.sh` (first-run secret generation incl. client secrets, health check, rollback), `backup.sh` (daily DB + signing key, 7 days)
