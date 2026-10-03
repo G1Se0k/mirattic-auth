@@ -94,19 +94,33 @@ scripts. Memory limits for 4 GB: Auth 768m, Sync 1280m (load test was at 2560m),
 Verified on the new host 2026-10-03 with dummy env: all three deploy, backups, Flow rollback (also with no
 `:current` image), crontab kept other jobs. All seven containers: 2.8 GB used of 3.7, swap unused.
 
-Cutover, one service at a time (Flow → Sync → Auth), each with the user's approval:
-1. Repo variable `DEPLOY_ENABLED=false` (Auth / Sync); Flow: disable the Deploy workflow.
-2. Mac: stop that service's app container, run its `backup.sh` (Auth: dump + signing key).
-3. Copy `.env` (Flow `.env.prod`) and the dump to the new host under the deploy user's dir; load the image once by
-   a CI run or manually; restore the dump into the fresh MySQL; Auth: put the signing key file into the
-   `signing-key` volume before the app's first start (else a new key is generated and every token breaks).
-4. Caddy site block (+ global `trusted_proxies` / `client_ip_headers` from Sync's `deploy/Caddyfile`).
-5. Cloudflare DNS → `<LIGHTSAIL_IP>` (proxied). Check health, a login, Sync and Flow.
+Rehearsal 2026-10-03 with the real 04:00 / 04:30 / 16:49 backups and env files (`deploy/host-move-copy.sh`, then
+`deploy/host-move-restore.sh` as `~/move/restore.sh` + each `deploy.sh`, images built on the host): restore + start
+per service 35–57 s; tables restored (auth 11, sync 10, flow 12); JWKS kid = production's current key; through
+Caddy (rehearsal config with `tls internal`, curl `--resolve`): Auth health / discovery (issuer
+`https://auth.mirattic.com`) / login (Kakao, Naver, Google), Sync health, Flow `/`, `/login`, `/api/users/me` 401,
+`/auth/start` → Auth authorize → `/login`. Memory with all seven containers: 2.8 GB of 3.7, swap 46 MB.
+Not testable before the DNS switch: a browser login (HSTS needs the real certificate).
+The previous signing key (`signing-key.previous.jwk.json`, from the 2026-09-30 rotation) is not in the backups, so
+the new host publishes only the current key — the same as running `retire`. Tokens signed with the old key expired
+long ago.
+
+Cutover, one service at a time (Flow → Sync → Auth, then mirattic.com), each with the user's approval:
+1. Auth / Sync: repo variable `DEPLOY_ENABLED=false`; Flow: disable the Deploy workflow.
+2. Mac: stop that service's app container (`docker stop mirattic-<…>-1`).
+3. Admin Mac: `sh deploy/host-move-copy.sh <service>` (fresh dump of that service + the env files to `~/move`).
+4. New host: `sh ~/move/restore.sh <service>`, then a CI run against the new host (step 6) or `deploy.sh` with
+   an image built there. Auth: the restore puts the signing key into the volume before the app's first start
+   (else a new key is generated and every token breaks).
+5. Caddy: the real site block (no `tls internal`); Cloudflare DNS → `<LIGHTSAIL_IP>` (proxied). Caddy then gets the
+   certificate by HTTP-01 through Cloudflare (as on the Mac), so expect a few seconds of errors. Check health, a
+   browser login, Sync and Flow.
 6. Point CI at the new host: Auth / Sync repo variables `DEPLOY_HOST=deploy@<LIGHTSAIL_IP>`,
    `DEPLOY_DIR=apps/mirattic-<name>`, `DEPLOY_PLATFORM=linux/amd64`, secrets `DEPLOY_SSH_KEY` (new key) and
-   `DEPLOY_KNOWN_HOSTS` (new host key); Flow: secrets `DEPLOY_HOST/USER/PATH/SSH_KEY`, variable
-   `DEPLOY_PLATFORM=linux/amd64`. Re-enable deploys, run one.
-Rollback: DNS back to the Mac (its data is untouched; writes after the switch are lost).
+   `DEPLOY_KNOWN_HOSTS` (new host key); Flow: secrets `DEPLOY_HOST/USER/PATH/SSH_KEY`,
+   `DEPLOY_HOST_FINGERPRINT`, variable `DEPLOY_PLATFORM=linux/amd64`. Re-enable deploys, run one.
+Rollback: DNS back to the Mac and start its container again (its data is untouched; writes after the switch are
+lost).
 After the move: `rotate-signing-key.sh retire`, Lightsail automatic snapshots, Mac kept 1–2 weeks.
 
 ## Signing Keys
