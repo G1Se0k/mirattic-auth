@@ -237,7 +237,8 @@ Not changed: Sync / Flow code (user request: do not touch yet).
 0. Lightsail move done 2026-10-03 (`deployment.md` "Host move"): user turns on automatic snapshots; Mac cleanup
    ~2026-10-17 with the user's approval.
 1. Key rotation: done in effect. The 2026-09-30 rotation's previous key was not carried to Lightsail, so only
-   `CKintvYOWY6h` is published since 2026-10-03 (= `retire`); Sync / Flow sign-ins with it checked by the user.
+   `CKintvYOWY6h` is published since 2026-10-03 (= `retire`). A browser sign-in to Sync / Flow through the new Auth
+   host is still to be confirmed by the user.
 2. Naver review (user; screenshots taken 2026-09-29, consent items: 이용자 식별자, 이름, 별명). Kakao console: app
    name "Mirattic", privacy URL https://auth.mirattic.com/privacy. Kakao unlink webhook: decided not to use.
 3. Off-host backup copy (DB + signing key, encrypted); Google: create the OAuth client (`deployment.md`), put its
