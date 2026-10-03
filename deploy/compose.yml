@@ -27,6 +27,8 @@ services:
   auth:
     image: mirattic-auth:current
     restart: unless-stopped
+    # 4 GB host shared with Sync and Flow. Heap 60% (Dockerfile), the rest for metaspace and threads; about 470 MB used at idle.
+    mem_limit: 768m
     depends_on:
       mysql:
         condition: service_healthy

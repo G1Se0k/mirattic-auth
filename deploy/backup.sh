@@ -1,5 +1,5 @@
 #!/bin/bash
-# Daily backup, run by launchd (installed by deploy.sh): MySQL dump + the JWT signing key.
+# Daily backup, run by launchd on the Mac host / cron on Linux (installed by deploy.sh): MySQL dump + the JWT signing key.
 # Keeps 7 days in ~/mirattic-auth-backups (outside ~/Documents: launchd can't read TCC-protected folders).
 set -euo pipefail
 export PATH=/opt/homebrew/bin:/usr/local/bin:$HOME/.orbstack/bin:$PATH

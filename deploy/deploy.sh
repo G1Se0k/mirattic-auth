@@ -40,12 +40,15 @@ if ! grep -q '^MAIL_HOST=..*' .env || ! grep -q '^MAIL_PASSWORD=..*' .env; then
   exit 1
 fi
 
-# Daily DB + signing-key backup (backup.sh) as a launchd agent, refreshed on every deploy.
-support="$HOME/Library/Application Support/mirattic-auth"
-agent="$HOME/Library/LaunchAgents/com.mirattic.auth.backup.plist"
-mkdir -p "$support" "$HOME/Library/LaunchAgents"
-cp backup.sh "$support/backup.sh"
-cat > "$agent" <<PLIST
+# Daily DB + signing-key backup (backup.sh) at 04:30, refreshed on every deploy: launchd on the Mac host,
+# cron on Linux. Fails the deploy before the image switch: a deploy must not report success with backups stopped.
+mkdir -p "$HOME/mirattic-auth-backups" && chmod 700 "$HOME/mirattic-auth-backups"
+if [ "$(uname)" = Darwin ]; then
+  support="$HOME/Library/Application Support/mirattic-auth"
+  agent="$HOME/Library/LaunchAgents/com.mirattic.auth.backup.plist"
+  mkdir -p "$support" "$HOME/Library/LaunchAgents"
+  cp backup.sh "$support/backup.sh"
+  cat > "$agent" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
@@ -56,15 +59,21 @@ cat > "$agent" <<PLIST
   <key>StandardErrorPath</key><string>$HOME/mirattic-auth-backups/backup.log</string>
 </dict></plist>
 PLIST
-mkdir -p "$HOME/mirattic-auth-backups" && chmod 700 "$HOME/mirattic-auth-backups"
-launchctl bootout "gui/$(id -u)/com.mirattic.auth.backup" 2>/dev/null || true
-# Fails the deploy before the image switch: a deploy must not report success with backups stopped.
-launchctl bootstrap "gui/$(id -u)" "$agent"
-launchctl print "gui/$(id -u)/com.mirattic.auth.backup" >/dev/null
+  launchctl bootout "gui/$(id -u)/com.mirattic.auth.backup" 2>/dev/null || true
+  launchctl bootstrap "gui/$(id -u)" "$agent"
+  launchctl print "gui/$(id -u)/com.mirattic.auth.backup" >/dev/null
+else
+  job="30 4 * * * /bin/bash $PWD/backup.sh >> $HOME/mirattic-auth-backups/backup.log 2>&1 # mirattic-auth-backup"
+  systemctl is-active --quiet cron
+  # Other services' jobs share this crontab: an unreadable one is an error, never an empty one to overwrite.
+  current=$(crontab -l 2>&1) || case "$current" in "no crontab for"*) current= ;; *) echo "$current" >&2; exit 1 ;; esac
+  { printf '%s\n' "$current" | grep -vF "# mirattic-auth-backup" | grep . || true; echo "$job"; } | crontab -
+  crontab -l | grep -qF "$job"
+fi
 
 healthy() {
   for _ in $(seq 60); do
-    curl -fsS http://127.0.0.1:8091/actuator/health >/dev/null 2>&1 && return 0
+    curl -fsS --max-time 5 http://127.0.0.1:8091/actuator/health >/dev/null 2>&1 && return 0
     sleep 2
   done
   return 1

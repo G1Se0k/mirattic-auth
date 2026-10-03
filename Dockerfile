@@ -3,4 +3,4 @@ FROM eclipse-temurin:21-jre
 COPY target/auth-0.0.1-SNAPSHOT.jar /app.jar
 USER 65534
 EXPOSE 9000
-ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app.jar"]
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=60", "-jar", "/app.jar"]

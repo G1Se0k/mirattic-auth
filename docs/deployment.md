@@ -77,6 +77,38 @@ Verified locally 2026-09-29: prod compose (issuer via proxy headers, key persist
 cookie, 429 on 21st `POST /login`); first-run secret generation (hash verifies against raw secret, compose
 passes `$` unchanged into the container). Not run: the CI deploy job and launchd on the real host.
 
+## Host move: Mac → AWS Lightsail (in progress, 2026-10-03)
+New host: Lightsail Seoul, 4 GB general purpose ($24/mo), Ubuntu 24.04 x86_64, static IP `<LIGHTSAIL_IP>`, KST.
+Set up: 2 GB swap, docker.io + compose v2, Caddy 2.11 (official apt repo; 2.6 lacks `client_ip_headers`), fail2ban,
+ufw (22 open for CI, key-only; 80/443 only from Cloudflare's ranges — refresh from cloudflare.com/ips if they change),
+cron active. User `deploy` (docker group) for CI; its key is `~/.ssh/mirattic-deploy-lightsail` on the admin Mac
+(not yet in any GitHub secret). Admin login: `ubuntu` with the Lightsail key.
+
+Moving: Auth, Sync, Flow and mirattic.com (static, `Mirattic/main`). monivillagebot stays on the Mac.
+
+All three pipelines deploy to the Mac until switched. Each `deploy.sh` installs its daily backup with launchd on the
+Mac and with the deploy user's crontab on Linux (Auth 04:30, Sync 04:00, Flow 04:15; 7 days in `~/mirattic-*-backups`).
+CI no longer needs a git clone on the host: Auth / Sync tar `deploy/` over SSH, Flow builds its two images in CI
+(native runner: `ubuntu-24.04-arm` for the Mac, `ubuntu-latest` for amd64) and scp's them with its compose and
+scripts. Memory limits for 4 GB: Auth 768m, Sync 1280m (load test was at 2560m), Flow backend 768m.
+Verified on the new host 2026-10-03 with dummy env: all three deploy, backups, Flow rollback (also with no
+`:current` image), crontab kept other jobs. All seven containers: 2.8 GB used of 3.7, swap unused.
+
+Cutover, one service at a time (Flow → Sync → Auth), each with the user's approval:
+1. Repo variable `DEPLOY_ENABLED=false` (Auth / Sync); Flow: disable the Deploy workflow.
+2. Mac: stop that service's app container, run its `backup.sh` (Auth: dump + signing key).
+3. Copy `.env` (Flow `.env.prod`) and the dump to the new host under the deploy user's dir; load the image once by
+   a CI run or manually; restore the dump into the fresh MySQL; Auth: put the signing key file into the
+   `signing-key` volume before the app's first start (else a new key is generated and every token breaks).
+4. Caddy site block (+ global `trusted_proxies` / `client_ip_headers` from Sync's `deploy/Caddyfile`).
+5. Cloudflare DNS → `<LIGHTSAIL_IP>` (proxied). Check health, a login, Sync and Flow.
+6. Point CI at the new host: Auth / Sync repo variables `DEPLOY_HOST=deploy@<LIGHTSAIL_IP>`,
+   `DEPLOY_DIR=apps/mirattic-<name>`, `DEPLOY_PLATFORM=linux/amd64`, secrets `DEPLOY_SSH_KEY` (new key) and
+   `DEPLOY_KNOWN_HOSTS` (new host key); Flow: secrets `DEPLOY_HOST/USER/PATH/SSH_KEY`, variable
+   `DEPLOY_PLATFORM=linux/amd64`. Re-enable deploys, run one.
+Rollback: DNS back to the Mac (its data is untouched; writes after the switch are lost).
+After the move: `rotate-signing-key.sh retire`, Lightsail automatic snapshots, Mac kept 1–2 weeks.
+
 ## Signing Keys
 Do not generate ephemeral signing keys on every restart.
 

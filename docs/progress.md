@@ -100,6 +100,16 @@ Create the central Mirattic Auth project and finalize the first deployable authe
   While off, a password doesn't count as a sign-in method: the last social method can't be unlinked.
   Codex Sol (gpt-6-sol): round 1 concerns (that unlink gap; EMAIL_LOGIN not passed by compose; reset-confirm POST
   untested) → fixed → round 2 PASS.
+- 2026-10-03 hosting move to AWS Lightsail (Seoul, 4GB general purpose, $24/mo, x86_64, Ubuntu 24.04, static
+  IP <LIGHTSAIL_IP>). Plan: `~/Documents/Mirattic/Lightsail-이전-계획.pdf`. Auth, Sync, Flow move (monivillagebot
+  stays on the Mac); order Flow → Sync → Auth, one at a time, DNS switch in Cloudflare, Mac kept 1–2 weeks as
+  rollback. No Cloudflare Tunnel: CI deploys over SSH, so 22 stays open (key-only, fail2ban); 80/443 only from
+  Cloudflare ranges (ufw). Step 1 done 2026-10-03: KST timezone, 2G swap, docker.io + compose v2, caddy 2.6,
+  fail2ban, ufw, user `deploy` (docker group). Step 2 done 2026-10-03 (Auth, Sync, Flow repos; runbook in
+  `deployment.md` "Host move"): host / platform switchable per repo, no git clone on the host, Flow images built in
+  CI, Linux backups via cron (Flow gets backups for the first time), memory limits; all three verified on the new
+  host with dummy env. Found then: mirattic.com (`Mirattic/main`, static, Caddy on the Mac) also has to move.
+  Still to do: rehearsal with real backups, cutover, Lightsail snapshots. Signing key moves as-is; retire after.
 
 ## Auth-only Work While Waiting, part 2 (2026-09-29)
 - Deploy automation: `.github/workflows/ci.yml` (test → arm64 image → SSH → `deploy/deploy.sh`, gated by repo variable `DEPLOY_ENABLED`), `deploy.sh` (first-run secret generation incl. client secrets, health check, rollback), `backup.sh` (daily DB + signing key, 7 days)
@@ -211,6 +221,8 @@ Not changed: Sync / Flow code (user request: do not touch yet).
 - Sync's one pre-migration test account (production, 2026-09-28) lost its legacy login; signing in with a Mirattic account of any email creates a separate Sync profile.
 
 ## Next Task
+0. Lightsail move (Known Decisions 2026-10-03, `deployment.md` "Host move"): rehearsal with real backups, then
+   cutover per service (Flow → Sync → Auth, then mirattic.com) with the user's approval.
 1. Key rotation, first run on the host 2026-09-30 05:12 KST: `rotate` → current `CKintvYOWY6h…`, previous
    `gp5pPSkcKIyO…` published (JWKS 2 public keys), a second `rotate` refused, backups before and after. Still to do:
    a Sync / Flow sign-in with the new key, then `deploy/rotate-signing-key.sh retire` from 2026-10-01.
