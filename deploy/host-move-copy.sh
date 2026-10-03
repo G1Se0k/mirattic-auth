@@ -6,10 +6,15 @@
 # Streams through this Mac without saving anything here.
 set -eu
 for s in "$@"; do case $s in auth|sync|flow) ;; *) echo "usage: host-move-copy.sh [auth] [sync] [flow]" >&2; exit 2 ;; esac; done
+# Fresh backups with this checkout's backup.sh (Flow's and Sync's from the sibling repos).
+here=$(cd "$(dirname "$0")" && pwd)
+for s in "$@"; do
+  case $s in auth) b=$here/backup.sh ;; sync) b=$here/../../sync/deploy/backup.sh ;; flow) b=$here/../../flow/backup.sh ;; esac
+  ssh giseok@ssh.mirattic.com 'bash -s' < "$b" >/dev/null
+done
 ssh giseok@ssh.mirattic.com "set -eu
 export PATH=/opt/homebrew/bin:/usr/local/bin:\$PATH
 cd ~
-for s in $*; do bash \"Library/Application Support/mirattic-\$s/backup.sh\" >/dev/null; done
 flow=\$(docker inspect -f '{{index .Config.Labels \"com.docker.compose.project.working_dir\"}}' mirattic-flow-prod-mysql-1)
 COPYFILE_DISABLE=1 tar -cz \
   \"\$(ls -t mirattic-auth-backups/mirattic-auth-*.sql.gz | head -1)\" \

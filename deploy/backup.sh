@@ -16,6 +16,7 @@ docker exec mirattic-auth-mysql-1 sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec m
   | gzip > "$file.tmp"
 mv "$file.tmp" "$file"
 # The signing key is a secret: same 0600 dir, never leaves the host. Losing it = every token invalid.
-docker exec mirattic-auth-auth-1 cat /keys/signing-key.jwk.json > "$key.tmp"
+# Straight from the volume: works with the app stopped too (the Lightsail move stops it before the last backup).
+docker run --rm -v mirattic-auth_signing-key:/keys:ro busybox cat /keys/signing-key.jwk.json > "$key.tmp"
 mv "$key.tmp" "$key"
 echo "backup $file $key"
