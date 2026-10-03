@@ -90,7 +90,8 @@ about 2026-10-17: volumes `mirattic-{auth,sync}_mysql-data`, `mirattic-flow-prod
 new host).
 New host: Lightsail Seoul, 4 GB general purpose ($24/mo), Ubuntu 24.04 x86_64, static IP `<LIGHTSAIL_IP>`, KST.
 Set up: 2 GB swap, docker.io + compose v2, Caddy 2.11 (official apt repo; 2.6 lacks `client_ip_headers`), fail2ban,
-ufw (22 open for CI, key-only; 80/443 only from Cloudflare's ranges — refresh from cloudflare.com/ips if they change),
+ufw (22 open for CI, key-only; 80/443 only from Cloudflare's ranges — refresh from cloudflare.com/ips if they change;
+Cloudflare SSL mode Full (strict) since 2026-10-03, a Configuration Rule keeps `monivillage` (Mac, `tls internal`) on Full),
 cron active. User `deploy` (docker group) for CI; its key is `~/.ssh/mirattic-deploy-lightsail` on the admin Mac
 (not yet in any GitHub secret). Admin login: `ubuntu` with the Lightsail key.
 
