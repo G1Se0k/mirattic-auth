@@ -77,7 +77,13 @@ Verified locally 2026-09-29: prod compose (issuer via proxy headers, key persist
 cookie, 429 on 21st `POST /login`); first-run secret generation (hash verifies against raw secret, compose
 passes `$` unchanged into the container). Not run: the CI deploy job and launchd on the real host.
 
-## Host move: Mac → AWS Lightsail (in progress, 2026-10-03)
+## Host move: Mac → AWS Lightsail (done 2026-10-03)
+**Production now runs on Lightsail** (Flow 17:09, Sync 17:26, Auth 17:40, mirattic.com 17:46 KST). Admin:
+`ssh -i ~/.ssh/mirattic-prod.pem ubuntu@<LIGHTSAIL_IP>` (sudo, Caddy at `/etc/caddy/Caddyfile`); services as
+`deploy` under `~/apps/mirattic-{auth,sync,flow}`, mirattic.com files in `/var/www/mirattic`. The sections above
+that name the Mac host (`~/Documents/…`, launchd, Homebrew Caddy) describe the old host; CI targets the new one
+through the repo variables / secrets below. The Mac still runs monivillage and keeps the stopped stacks' MySQL
+for rollback until about 2026-10-17, then its Mirattic containers, launchd backup agents and Caddy blocks go.
 New host: Lightsail Seoul, 4 GB general purpose ($24/mo), Ubuntu 24.04 x86_64, static IP `<LIGHTSAIL_IP>`, KST.
 Set up: 2 GB swap, docker.io + compose v2, Caddy 2.11 (official apt repo; 2.6 lacks `client_ip_headers`), fail2ban,
 ufw (22 open for CI, key-only; 80/443 only from Cloudflare's ranges — refresh from cloudflare.com/ips if they change),

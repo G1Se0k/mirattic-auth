@@ -120,7 +120,9 @@ Create the central Mirattic Auth project and finalize the first deployable authe
   **Auth moved 2026-10-03 17:40 KST** (fresh 17:38 dump + signing key, JWKS kid `CKintvYOWY6h` = before; ~5 min
   without sign-in: the first copy failed because backup.sh read the key from the stopped app → now read from the
   volume). Mac: Auth app stopped, its MySQL kept for rollback.
-  Still to do: mirattic.com (rsync path ready in `Mirattic/main`), Lightsail snapshots, Mac cleanup after 1–2 weeks.
+  **mirattic.com moved 17:46 KST** (rsync deploy from `Mirattic/main`, no downtime). Move copies and rehearsal
+  images removed from the new host. Still to do: Lightsail automatic snapshots (user, console), Mac cleanup
+  ~2026-10-17 (Mirattic containers / volumes, launchd backup agents, Caddy blocks; monivillage stays).
 
 ## Auth-only Work While Waiting, part 2 (2026-09-29)
 - Deploy automation: `.github/workflows/ci.yml` (test → arm64 image → SSH → `deploy/deploy.sh`, gated by repo variable `DEPLOY_ENABLED`), `deploy.sh` (first-run secret generation incl. client secrets, health check, rollback), `backup.sh` (daily DB + signing key, 7 days)
@@ -232,11 +234,10 @@ Not changed: Sync / Flow code (user request: do not touch yet).
 - Sync's one pre-migration test account (production, 2026-09-28) lost its legacy login; signing in with a Mirattic account of any email creates a separate Sync profile.
 
 ## Next Task
-0. Lightsail move (Known Decisions 2026-10-03, `deployment.md` "Host move"): Flow, Sync and Auth done; next
-   mirattic.com, each with the user's approval.
-1. Key rotation, first run on the host 2026-09-30 05:12 KST: `rotate` → current `CKintvYOWY6h…`, previous
-   `gp5pPSkcKIyO…` published (JWKS 2 public keys), a second `rotate` refused, backups before and after. Still to do:
-   a Sync / Flow sign-in with the new key, then `deploy/rotate-signing-key.sh retire` from 2026-10-01.
+0. Lightsail move done 2026-10-03 (`deployment.md` "Host move"): user turns on automatic snapshots; Mac cleanup
+   ~2026-10-17 with the user's approval.
+1. Key rotation: done in effect. The 2026-09-30 rotation's previous key was not carried to Lightsail, so only
+   `CKintvYOWY6h` is published since 2026-10-03 (= `retire`); Sync / Flow sign-ins with it checked by the user.
 2. Naver review (user; screenshots taken 2026-09-29, consent items: 이용자 식별자, 이름, 별명). Kakao console: app
    name "Mirattic", privacy URL https://auth.mirattic.com/privacy. Kakao unlink webhook: decided not to use.
 3. Off-host backup copy (DB + signing key, encrypted); Google: create the OAuth client (`deployment.md`), put its
