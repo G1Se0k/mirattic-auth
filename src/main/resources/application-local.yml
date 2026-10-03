@@ -25,6 +25,9 @@ auth:
   email-login: true
   signing-key:
     generate-if-missing: true
+  admin:
+    sync-url: http://127.0.0.1:8080/api/internal/admin
+    flow-url: http://127.0.0.1:3000/api/internal/admin
   account-deletion:
     flow-url: http://127.0.0.1:3000/api/internal/account-deletion
     sync-url: http://127.0.0.1:8080/api/internal/account-deletion

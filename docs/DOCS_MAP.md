@@ -6,6 +6,7 @@
 - `clients.md` — registered clients, redirect URIs
 - `data-model.md` — identity schema
 - `api.md` — account API
+- `admin.md` — admin console, product admin reads
 - `security.md` — security requirements
 - `migration.md` — Sync/Flow migration
 - `deployment.md` — deployment/keys/backups

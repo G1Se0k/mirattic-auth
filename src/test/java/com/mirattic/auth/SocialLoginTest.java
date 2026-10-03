@@ -142,6 +142,10 @@ class SocialLoginTest extends IntegrationTest {
 		jdbc.update("UPDATE users SET status = 'DISABLED' WHERE id = (SELECT user_id FROM user_identities "
 				+ "WHERE provider = 'KAKAO' AND subject = ?)", kakaoId);
 		assertThat(start("kakao", kakao(kakaoId, null, "x"), null).getRedirectedUrl()).endsWith("/login?social_error");
+		// Suspended by the admin: the login page says so.
+		jdbc.update("UPDATE users SET status = 'SUSPENDED' WHERE id = (SELECT user_id FROM user_identities "
+				+ "WHERE provider = 'KAKAO' AND subject = ?)", kakaoId);
+		assertThat(start("kakao", kakao(kakaoId, null, "x"), null).getRedirectedUrl()).endsWith("/login?suspended");
 	}
 
 	@Test

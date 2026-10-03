@@ -203,6 +203,29 @@ public class AccountService {
 				.forEach(sessions::deleteById);
 	}
 
+	/**
+	 * Admin: stops an ACTIVE account (SUSPENDED) and signs it out everywhere; its app access tokens lapse within
+	 * 15 min. False if it wasn't ACTIVE (e.g. being deleted).
+	 */
+	public boolean suspend(String userId) {
+		if (jdbc.update("UPDATE users SET status = 'SUSPENDED', updated_at = NOW(6) WHERE id = ? AND status = 'ACTIVE'",
+				userId) == 0) {
+			return false;
+		}
+		endSessions(userId, null);
+		events.record(userId, SecurityEvents.Type.SUSPENDED, null);
+		return true;
+	}
+
+	/** Admin: SUSPENDED → ACTIVE. The user signs in again. */
+	public boolean resume(String userId) {
+		if (jdbc.update("UPDATE users SET status = 'ACTIVE', updated_at = NOW(6) WHERE id = ? AND status = 'SUSPENDED'",
+				userId) == 0) {
+			return false;
+		}
+		events.record(userId, SecurityEvents.Type.RESUMED, null);
+		return true;
+	}
 
 	/**
 	 * When the user last signed in (the latest factor: password, Kakao / Naver), EPOCH if unknown. The same source SAS

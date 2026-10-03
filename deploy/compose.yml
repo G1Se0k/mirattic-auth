@@ -59,6 +59,8 @@ services:
       SIGNUP_IP_KEY: ${SIGNUP_IP_KEY}
       # true reopens email sign-in / sign-up / reset (docs/deployment.md).
       EMAIL_LOGIN: ${EMAIL_LOGIN:-false}
+      # Mirattic UIDs allowed into /admin, comma-separated (docs/admin.md). Empty: nobody.
+      ADMIN_UIDS: ${ADMIN_UIDS:-}
       SPRING_MAIL_HOST: ${MAIL_HOST}
       SPRING_MAIL_PORT: ${MAIL_PORT}
       SPRING_MAIL_USERNAME: ${MAIL_USERNAME}

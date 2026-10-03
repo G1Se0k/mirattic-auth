@@ -4,7 +4,7 @@
 ```text
 id UUID PK
 display_name VARCHAR(64)
-status ACTIVE | DISABLED | DELETED
+status ACTIVE | SUSPENDED | DISABLED | DELETED   -- SUSPENDED: admin (admin.md); DISABLED: deletion fence
 created_at
 updated_at
 ```

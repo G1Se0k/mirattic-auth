@@ -17,6 +17,31 @@
   <a class="brand" th:href="@{/account}"><img th:src="@{/mark.svg}" alt="">Mirattic <span>계정</span></a>
 </header>
 
+<header class="top" th:fragment="admin-top">
+  <a class="brand" th:href="@{/admin}"><img th:src="@{/mark.svg}" alt="">Mirattic <span>관리자</span></a>
+  <a th:href="@{/account}">내 계정</a>
+</header>
+
+<!-- A product's admin report (ProductAdmin.Report): facts, then tables. -->
+<div th:fragment="report(p)">
+  <p class="note error" th:if="${p.error}" th:text="${p.error}"></p>
+  <dl class="facts" th:unless="${p.facts.isEmpty()}">
+    <div th:each="f : ${p.facts}"><dt th:text="${f[0]}">항목</dt><dd th:text="${f.size() > 1 ? f[1] : ''}">값</dd></div>
+  </dl>
+  <th:block th:each="t : ${p.tables}">
+    <h3 th:text="${t.title}">표</h3>
+    <div class="scroll">
+      <table class="list">
+        <thead><tr><th th:each="c : ${t.columns}" th:text="${c}">열</th></tr></thead>
+        <tbody>
+          <tr th:each="r : ${t.rows}"><td th:each="v : ${r}" th:text="${v}">값</td></tr>
+          <tr th:if="${t.rows.isEmpty()}"><td th:colspan="${t.columns.size()}" class="muted">없음</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </th:block>
+</div>
+
 <footer th:fragment="bottom">© Mirattic · <a th:href="@{/privacy}">개인정보처리방침</a></footer>
 
 <!-- Logo lockup: mark + "Mirattic" wordmark (dot of the last i in the brand blue, as in the Flow logo). -->

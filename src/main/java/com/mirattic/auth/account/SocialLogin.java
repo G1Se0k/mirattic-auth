@@ -135,7 +135,7 @@ public class SocialLogin implements OAuth2UserService<OAuth2UserRequest, OAuth2U
 		}
 		String status = jdbc.queryForObject("SELECT status FROM users WHERE id = ?", String.class, uid);
 		if (!"ACTIVE".equals(status)) {
-			throw failure("account not active");
+			throw failure("SUSPENDED".equals(status) ? SUSPENDED : "account not active");
 		}
 		return uid;
 	}
@@ -198,7 +198,7 @@ public class SocialLogin implements OAuth2UserService<OAuth2UserRequest, OAuth2U
 				session.removeAttribute(LINK);
 			}
 			String to = code.startsWith("link_") ? "/account?link_error=" + code.substring(5)
-					: pending ? "/account?link_error=failed" : "/login?social_error";
+					: pending ? "/account?link_error=failed" : SUSPENDED.equals(code) ? "/login?suspended" : "/login?social_error";
 			response.sendRedirect(request.getContextPath() + to);
 		};
 	}
@@ -254,9 +254,13 @@ public class SocialLogin implements OAuth2UserService<OAuth2UserRequest, OAuth2U
 		return o instanceof String s && !s.isBlank() ? s : null;
 	}
 
-	/** `link_*` codes are link failures (see failureHandler); anything else a failed sign-in. */
+	/** Sign-in of an account the admin suspended: the login page says so. */
+	private static final String SUSPENDED = "account_suspended";
+
+	/** `link_*` codes are link failures (see failureHandler), SUSPENDED is itself; anything else a failed sign-in. */
 	private static OAuth2AuthenticationException failure(String code) {
-		return new OAuth2AuthenticationException(new OAuth2Error(code.startsWith("link_") ? code : "social_login_failed",
+		return new OAuth2AuthenticationException(new OAuth2Error(
+				code.startsWith("link_") || SUSPENDED.equals(code) ? code : "social_login_failed",
 				code, null));
 	}
 }

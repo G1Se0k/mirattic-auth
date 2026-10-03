@@ -126,6 +126,19 @@ Create the central Mirattic Auth project and finalize the first deployable authe
   the user. Automatic snapshots left off for now (user, 2026-10-03): after the Mac volumes go (~2026-10-17) the only
   backups are on the Lightsail host itself.
 
+## Admin Console (2026-10-03)
+- User request: a console to manage Sync and Flow. Decisions (user): inside Auth at `/admin`; one operator (UID in
+  `ADMIN_UIDS`); features: user search, suspension + forced sign-out, stats, product data (read-only first).
+- Auth: `/admin` dashboard + search, `/admin/users/{uid}`; suspend / resume / sign out everywhere (fresh sign-in,
+  never self, logged); V7 `SUSPENDED` status (kept apart from the DISABLED deletion fence); social sign-in of a
+  suspended account → `/login?suspended`. `ProductOrders` extracted from `AccountDeletion` (same order JWT, purpose
+  `admin_read` for the console). Docs: `admin.md`, `security.md`, `data-model.md`, `deployment.md` (env).
+- Sync / Flow: `GET /api/internal/admin/stats` and `/users/{uid}` (admin_read orders only; counts, reports,
+  feedback, workspaces; no chat / issue contents, not what a Sync room is watching). Sync's order check generalized
+  (`AccountController.order(purpose)`).
+- Tests: Auth 74, Sync and Flow full suites pass. UI checked in a local preview (desktop). Codex Sol (gpt-6-sol): PASS.
+- To use: put the operator's UID (account page "계정 ID") in the host `.env` as `ADMIN_UIDS`, recreate Auth.
+
 ## Auth-only Work While Waiting, part 2 (2026-09-29)
 - Deploy automation: `.github/workflows/ci.yml` (test → arm64 image → SSH → `deploy/deploy.sh`, gated by repo variable `DEPLOY_ENABLED`), `deploy.sh` (first-run secret generation incl. client secrets, health check, rollback), `backup.sh` (daily DB + signing key, 7 days)
 - Browser sessions in MySQL (Spring Session JDBC, V3); password change ends other sessions, reset ends all
@@ -245,5 +258,7 @@ Not changed: Sync / Flow code (user request: do not touch yet).
 3. Off-host backup copy (DB + signing key, encrypted); Google: create the OAuth client (`deployment.md`), put its
    id / secret in the host `.env`, then deploy; Apple when its console is ready.
 4. Codex Sol review of Phases 5 and 7 when quota returns.
-5. Optional: adding email + password to a Kakao / Naver-only account (needs a decision on email ownership);
+5. Admin console: set `ADMIN_UIDS` on the host (user's UID), then check `/admin` live. Later, if wanted: editing
+   product data, product-side activity stats (exact DAU).
+6. Optional: adding email + password to a Kakao / Naver-only account (needs a decision on email ownership);
    DMARC `p=quarantine`; rotate the Resend API key (shared in chat).

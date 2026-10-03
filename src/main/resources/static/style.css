@@ -370,3 +370,31 @@ main.doc code { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
   main.doc tr { padding: 8px 0; border-bottom: 1px solid var(--line); }
   main.doc td { border: 0; padding: 2px 0; }
 }
+
+/* admin console */
+main.wide { max-width: 1040px; margin-top: 24px; }
+main.wide .panel { padding: 20px 22px; margin-bottom: 16px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.grid > .panel { margin: 0; }
+.grid + .grid, .grid + .panel, .cards + .grid { margin-top: 16px; }
+.search { margin-bottom: 16px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
+.card span { display: block; color: var(--ink-soft); font-size: 13px; }
+.card strong { font-size: 24px; font-weight: 700; }
+.scroll { overflow-x: auto; }
+table.list { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.list th, table.list td { padding: 8px 10px 8px 0; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+table.list th { color: var(--ink-soft); font-weight: 600; font-size: 13px; }
+.muted { color: var(--ink-faint); }
+.badge { padding: 1px 8px; border-radius: 999px; background: var(--done-soft); color: var(--done); font-size: 12px; }
+.badge.off { background: var(--danger-soft); color: var(--danger); }
+.bars { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+.bars li { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+.bars span { flex: 0 0 40px; color: var(--ink-soft); }
+.bars b { flex-shrink: 0; }
+.bars i { height: 10px; min-width: 2px; border-radius: 3px; background: var(--primary); }
+.pager { display: flex; gap: 16px; margin: 12px 0 0; font-size: 14px; }
+h2 small.hint { margin-left: 6px; font-weight: 400; }
+h2.gap { margin-top: 22px; }
+h3 { margin: 16px 0 8px; font-size: 14px; font-weight: 650; }

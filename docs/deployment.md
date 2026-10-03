@@ -215,3 +215,5 @@ docker compose up -d                                        # MySQL 8.4 on 3307 
 | `FLOW_ACCOUNT_DELETION_URL` / `SYNC_ACCOUNT_DELETION_URL` | optional; default `https://{flow,sync}.mirattic.com/api/internal/account-deletion` (`api.md` "Account Deletion"). Local profile: the products' dev ports |
 | `SIGNUP_IP_KEY` | HMAC key for signup-per-network hashes; `deploy.sh` generates it once on the host. Local/tests: random |
 | `EMAIL_LOGIN` | `true` reopens email sign-in / sign-up / reset. Default `false` (social only) |
+| `ADMIN_UIDS` | Mirattic UIDs allowed into the admin console `/admin`, comma-separated (`admin.md`). Default empty: nobody |
+| `SYNC_ADMIN_URL` / `FLOW_ADMIN_URL` | optional; default `https://{sync,flow}.mirattic.com/api/internal/admin` (`admin.md`) |

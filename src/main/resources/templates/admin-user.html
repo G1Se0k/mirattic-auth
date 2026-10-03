@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('사용자')}"></head>
+<body>
+<header th:replace="~{fragments :: admin-top}"></header>
+<main class="wide">
+  <p><a th:href="@{/admin}">← 목록</a></p>
+  <p class="note ok" th:if="${param.suspended}">이용을 정지하고 모든 기기에서 로그아웃시켰습니다. 앱은 15분 안에 로그아웃됩니다.</p>
+  <p class="note ok" th:if="${param.resumed}">정지를 해제했습니다.</p>
+  <p class="note ok" th:if="${param.signedOut}">모든 기기에서 로그아웃시켰습니다. 앱은 15분 안에 로그아웃됩니다.</p>
+  <p class="note error" th:if="${param.unchanged}">상태가 바뀌어 처리하지 않았습니다. 다시 확인하세요.</p>
+  <p class="note error" th:if="${param.self}">내 계정에는 할 수 없습니다.</p>
+
+  <div class="grid">
+    <section class="panel">
+      <h1 class="spaced" th:text="${user.displayName}">홍길동</h1>
+      <dl class="facts">
+        <div><dt>상태</dt><dd><span class="badge" th:classappend="${user.status != 'ACTIVE'} ? 'off'" th:text="${@adminLabels.status(user.status)}">정상</span></dd></div>
+        <div><dt>이메일</dt><dd th:text="${user.email ?: '-'}">you@example.com</dd></div>
+        <div><dt>UID</dt><dd><code th:text="${user.id}">uuid</code></dd></div>
+        <div><dt>가입</dt><dd th:text="${#temporals.format(user.createdAt, 'yyyy.M.d HH:mm')}">2026.10.3</dd></div>
+        <div><dt>마지막 앱 사용</dt><dd th:text="${user.lastAppUseAt == null ? '-' : #temporals.format(user.lastAppUseAt, 'yyyy.M.d HH:mm')}">-</dd></div>
+      </dl>
+      <h2>로그인 방법</h2>
+      <ul class="devices">
+        <li th:each="i : ${identities}"><div><strong th:text="${i.provider}">KAKAO</strong>
+          <p th:text="${(i.email ?: '이메일 없음') + ' · 연결 ' + #temporals.format(i.linkedAt, 'yy.M.d')}">-</p></div></li>
+        <li th:if="${identities.isEmpty()}" class="muted">없음</li>
+      </ul>
+      <th:block th:unless="${self}">
+        <form th:if="${user.status == 'ACTIVE'}" method="post" th:action="@{/admin/users/{id}/suspend(id=${user.id})}"
+              onsubmit="return confirm('이용을 정지할까요? 모든 기기에서 로그아웃됩니다.')">
+          <button type="submit" class="danger">이용 정지</button>
+        </form>
+        <form th:if="${user.status == 'SUSPENDED'}" method="post" th:action="@{/admin/users/{id}/resume(id=${user.id})}">
+          <button type="submit" class="primary">정지 해제</button>
+        </form>
+        <form th:if="${user.status == 'ACTIVE'}" method="post" th:action="@{/admin/users/{id}/sign-out(id=${user.id})}"
+              onsubmit="return confirm('모든 기기에서 로그아웃시킬까요?')">
+          <button type="submit" class="danger">모든 기기에서 로그아웃</button>
+        </form>
+      </th:block>
+    </section>
+
+    <section class="panel">
+      <h2>로그인된 기기</h2>
+      <ul class="devices">
+        <li th:each="d : ${devices}"><div><strong th:text="${d.label}">Chrome · Mac</strong><small th:if="${d.app}">앱</small>
+          <p th:text="${'마지막 사용 ' + #temporals.format(d.lastUsedAt, 'M월 d일 HH:mm')}">-</p></div></li>
+        <li th:if="${devices.isEmpty()}" class="muted">없음</li>
+      </ul>
+      <h2 class="gap">보안 활동</h2>
+      <ul class="devices">
+        <li th:each="e : ${events}"><div><strong th:text="${e.type.label}">로그인</strong>
+          <p th:text="${#temporals.format(e.at, 'M월 d일 HH:mm')} + (${e.detail} ? ${' · ' + e.detail} : '')">-</p></div></li>
+        <li th:if="${events.isEmpty()}" class="muted">없음 (90일 보관)</li>
+      </ul>
+    </section>
+  </div>
+
+  <div class="grid">
+    <section class="panel" th:each="p : ${products}">
+      <h2 th:text="${p.name}">Mirattic Sync</h2>
+      <div th:replace="~{fragments :: report(${p})}"></div>
+    </section>
+  </div>
+</main>
+</body>
+</html>

@@ -120,6 +120,12 @@ the raw secret server-side. Details: `clients.md`.
 
 ## Account State
 Tokens are minted only for `ACTIVE` accounts (checked on every code exchange and refresh).
+The admin can suspend an account (`SUSPENDED`, `admin.md`); that also ends its sessions and app logins.
+
+## Admin Console
+Only UIDs in `ADMIN_UIDS`; changes need a sign-in in the last 10 minutes and never apply to the admin's own account;
+each is logged with the admin's UID. Product data is read with one-minute `admin_read` orders (`admin.md`), never
+with a user's token, and products return counts, not chat or issue contents.
 
 ## Secrets
 Keep outside source:

@@ -22,6 +22,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcOperations;
+import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
@@ -85,7 +86,8 @@ class SecurityConfig {
 	@Order(2)
 	SecurityFilterChain defaultChain(HttpSecurity http, SocialLogin socialLogin,
 			ClientRegistrationRepository registrations, Devices devices, SecurityEvents events, JdbcOperations jdbc,
-			@Value("${auth.email-login}") boolean emailLogin) throws Exception {
+			@Value("${auth.email-login}") boolean emailLogin, @Value("${auth.admin-uids:}") Set<String> adminUids)
+			throws Exception {
 		if (emailLogin) {
 			http.formLogin(f -> f.loginPage("/login")
 					.successHandler(devices.recording(new SavedRequestAwareAuthenticationSuccessHandler()))
@@ -98,6 +100,9 @@ class SecurityConfig {
 		return http
 				.addFilterAfter(new ActiveAccountFilter(jdbc), SecurityContextHolderFilter.class)
 				.authorizeHttpRequests(a -> a
+						// Admin console: only the UIDs in ADMIN_UIDS (docs/admin.md).
+						.requestMatchers("/admin", "/admin/**").access((auth, ctx) -> new AuthorizationDecision(
+								adminUids.contains(auth.get().getName())))
 						.requestMatchers("/actuator/health", "/privacy", "/login", "/signup", "/password/reset",
 								"/password/reset/confirm", "/error").permitAll()
 						.requestMatchers("/style.css", "/fonts/**", "/mark.svg", "/favicon-32.png",

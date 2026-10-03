@@ -76,6 +76,9 @@ public abstract class IntegrationTest {
 		registry.add("spring.security.oauth2.client.provider.google.jwk-set-uri", () -> SocialStub.url("/jwks"));
 		registry.add("auth.account-deletion.flow-url", () -> SocialStub.url("/flow/delete"));
 		registry.add("auth.account-deletion.sync-url", () -> SocialStub.url("/sync/delete"));
+		registry.add("auth.admin.flow-url", () -> SocialStub.url("/flow/admin"));
+		registry.add("auth.admin.sync-url", () -> SocialStub.url("/sync/admin"));
+		registry.add("auth.admin-uids", () -> ADMIN);
 		// Every test logs in from 127.0.0.1; the limiter itself is covered by AuthRateLimitFilterTest.
 		registry.add("auth.rate-limit-per-minute", () -> "100000");
 	}
@@ -88,6 +91,9 @@ public abstract class IntegrationTest {
 
 	@Autowired
 	protected JdbcTemplate jdbc;
+
+	/** The admin console's one admin (AdminTest creates the account). */
+	protected static final String ADMIN = "a0000000-0000-4000-8000-00000000ad01";
 
 	// Dev client from application-local.yml.
 	protected static final String CLIENT = "mirattic-sync";

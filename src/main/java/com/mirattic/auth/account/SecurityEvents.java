@@ -21,7 +21,10 @@ public class SecurityEvents {
 		LINKED("로그인 방법 연결"),
 		UNLINKED("로그인 방법 해제"),
 		DEVICE_SIGNED_OUT("기기 로그아웃"),
-		TOKEN_REUSE("이미 쓴 로그인 토큰이 다시 쓰여 그 앱 로그인을 끊음 (도용 의심)");
+		TOKEN_REUSE("이미 쓴 로그인 토큰이 다시 쓰여 그 앱 로그인을 끊음 (도용 의심)"),
+		SUSPENDED("관리자가 이용 정지"),
+		RESUMED("관리자가 이용 정지 해제"),
+		ADMIN_SIGNED_OUT("관리자가 모든 기기에서 로그아웃");
 
 		private final String label;
 
@@ -53,9 +56,13 @@ public class SecurityEvents {
 
 	/** Newest first. */
 	public List<Event> recent(String userId) {
+		return recent(userId, 10);
+	}
+
+	public List<Event> recent(String userId, int limit) {
 		return jdbc.query("SELECT type, detail, created_at FROM security_events WHERE user_id = ? "
-				+ "ORDER BY created_at DESC, id DESC LIMIT 10", (rs, n) -> new Event(Type.valueOf(rs.getString(1)),
-				rs.getString(2), rs.getTimestamp(3).toInstant().atZone(SEOUL)), userId);
+				+ "ORDER BY created_at DESC, id DESC LIMIT ?", (rs, n) -> new Event(Type.valueOf(rs.getString(1)),
+				rs.getString(2), rs.getTimestamp(3).toInstant().atZone(SEOUL)), userId, limit);
 	}
 
 	/**

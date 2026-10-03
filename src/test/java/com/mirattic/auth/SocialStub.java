@@ -24,7 +24,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Stand-in for Kakao's, Naver's and Google's token and user-info endpoints (Google's with a signed ID token and its
- * JWK set), and for the products' account-deletion endpoints (JDK HTTP server, one per test JVM).
+ * JWK set), and for the products' account-deletion and admin-read endpoints (JDK HTTP server, one per test JVM).
  */
 final class SocialStub {
 
@@ -41,6 +41,8 @@ final class SocialStub {
 	static final List<String> DELETIONS = new CopyOnWriteArrayList<>();
 	/** Runs while a product's deletion endpoint is handling the order (what Auth looks like mid-deletion). */
 	static volatile Runnable duringDeletion = () -> { };
+	/** Admin reads received: product + " " + path + " " + bearer token. Sync answers; Flow is down (500). */
+	static final List<String> ADMIN_READS = new CopyOnWriteArrayList<>();
 
 	static {
 		try {
@@ -83,6 +85,18 @@ final class SocialStub {
 						ex.close();
 					} else {
 						send(ex, answer.getKey(), answer.getValue());
+					}
+				});
+			}
+			for (String product : new String[] {"flow", "sync"}) {
+				SERVER.createContext("/" + product + "/admin", ex -> {
+					ADMIN_READS.add(product + " " + ex.getRequestURI().getPath().replace("/" + product + "/admin", "")
+							+ " " + String.valueOf(ex.getRequestHeaders().getFirst("Authorization")).replace("Bearer ", ""));
+					if ("flow".equals(product)) {
+						send(ex, 500, "{}");
+					} else {
+						send(ex, 200, "{\"facts\":[[\"방\",\"3<b>\"]],\"tables\":[{\"title\":\"친구\","
+								+ "\"columns\":[\"이름\"],\"rows\":[[\"영희\"]]}]}");
 					}
 				});
 			}

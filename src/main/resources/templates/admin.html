@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('관리자')}"></head>
+<body>
+<header th:replace="~{fragments :: admin-top}"></header>
+<main class="wide">
+  <form method="get" th:action="@{/admin}" class="row search">
+    <input name="q" th:value="${q}" placeholder="UID, 이메일 또는 이름" aria-label="사용자 검색">
+    <button type="submit" class="primary">검색</button>
+  </form>
+
+  <th:block th:if="${statuses}">
+    <div class="cards">
+      <div class="card" th:each="s : ${statuses}">
+        <span th:text="${@adminLabels.status(s.key)}">정상</span>
+        <strong th:text="${s.value}">0</strong>
+      </div>
+    </div>
+
+    <div class="grid">
+      <section class="panel">
+        <h2>앱 사용자 <small class="hint">로그인 유지 기준 근사치</small></h2>
+        <table class="list">
+          <thead><tr><th>서비스</th><th>1일</th><th>7일</th><th>30일</th></tr></thead>
+          <tbody>
+            <tr th:each="u : ${usage}"><td th:text="${u.product}">Mirattic Sync</td><td th:text="${u.day}">0</td>
+              <td th:text="${u.week}">0</td><td th:text="${u.month}">0</td></tr>
+            <tr th:if="${usage.isEmpty()}"><td colspan="4" class="muted">없음</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="panel">
+        <h2>최근 14일 가입</h2>
+        <ul class="bars">
+          <li th:each="d : ${signups}">
+            <span th:text="${#dates.format(d.day, 'M/d')}">10/3</span>
+            <i th:style="'width:' + ${d.n * 100 / signupMax} + '%'"></i>
+            <b th:text="${d.n}">0</b>
+          </li>
+          <li th:if="${signups.isEmpty()}" class="muted">없음</li>
+        </ul>
+      </section>
+    </div>
+
+    <div class="grid">
+      <section class="panel" th:each="p : ${products}">
+        <h2 th:text="${p.name}">Mirattic Sync</h2>
+        <div th:replace="~{fragments :: report(${p})}"></div>
+      </section>
+    </div>
+  </th:block>
+
+  <section class="panel">
+    <h2 th:text="${q.isEmpty() ? '최근 가입 순' : '검색 결과'}">최근 가입 순</h2>
+    <div class="scroll">
+      <table class="list">
+        <thead><tr><th>이름</th><th>이메일</th><th>로그인 방법</th><th>상태</th><th>가입</th><th>마지막 앱 사용</th></tr></thead>
+        <tbody>
+          <tr th:each="u : ${users}">
+            <td><a th:href="@{/admin/users/{id}(id=${u.id})}" th:text="${u.displayName}">홍길동</a></td>
+            <td th:text="${u.email ?: '-'}">you@example.com</td>
+            <td th:text="${u.providers ?: '-'}">KAKAO</td>
+            <td><span class="badge" th:classappend="${u.status != 'ACTIVE'} ? 'off'" th:text="${@adminLabels.status(u.status)}">정상</span></td>
+            <td th:text="${#temporals.format(u.createdAt, 'yy.M.d')}">26.10.3</td>
+            <td th:text="${u.lastAppUseAt == null ? '-' : #temporals.format(u.lastAppUseAt, 'M/d HH:mm')}">-</td>
+          </tr>
+          <tr th:if="${users.isEmpty()}"><td colspan="6" class="muted">없음</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="pager">
+      <a th:if="${page > 0}" th:href="@{/admin(q=${q}, page=${page - 1})}">← 이전</a>
+      <a th:if="${more}" th:href="@{/admin(q=${q}, page=${page + 1})}">다음 →</a>
+    </p>
+  </section>
+</main>
+</body>
+</html>
