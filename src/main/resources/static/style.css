@@ -398,3 +398,5 @@ table.list th { color: var(--ink-soft); font-weight: 600; font-size: 13px; }
 h2 small.hint { margin-left: 6px; font-weight: 400; }
 h2.gap { margin-top: 22px; }
 h3 { margin: 16px 0 8px; font-size: 14px; font-weight: 650; }
+.admin-nav { display: flex; gap: 18px; font-size: 14px; }
+table.list td.long { white-space: normal; min-width: 220px; max-width: 420px; overflow-wrap: anywhere; }

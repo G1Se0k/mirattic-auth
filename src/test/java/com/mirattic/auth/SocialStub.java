@@ -43,6 +43,8 @@ final class SocialStub {
 	static volatile Runnable duringDeletion = () -> { };
 	/** Admin reads received: product + " " + path + " " + bearer token. Sync answers; Flow is down (500). */
 	static final List<String> ADMIN_READS = new CopyOnWriteArrayList<>();
+	/** A UID in Sync's admin answers (the console links it). */
+	static final String ADMIN_ROW_UID = "b0000000-0000-4000-8000-0000000000b1";
 
 	static {
 		try {
@@ -96,7 +98,8 @@ final class SocialStub {
 						send(ex, 500, "{}");
 					} else {
 						send(ex, 200, "{\"facts\":[[\"방\",\"3<b>\"]],\"tables\":[{\"title\":\"친구\","
-								+ "\"columns\":[\"이름\"],\"rows\":[[\"영희\"]]}]}");
+								+ "\"columns\":[\"이름\",\"UID\"],\"rows\":[[\"" + ADMIN_ROW_UID.replace("b1", "c1") + "\",\"" + ADMIN_ROW_UID + "\"]]}],"
+								+ "\"more\":true}");
 					}
 				});
 			}

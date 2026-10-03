@@ -137,6 +137,8 @@ Create the central Mirattic Auth project and finalize the first deployable authe
   feedback, workspaces; no chat / issue contents, not what a Sync room is watching). Sync's order check generalized
   (`AccountController.order(purpose)`).
 - Tests: Auth 74, Sync and Flow full suites pass. UI checked in a local preview (desktop). Codex Sol (gpt-6-sol): PASS.
+- Sync reports and feedback / bug reports in full (user request, 2026-10-03): `/admin/sync/reports`, `/admin/sync/feedback`,
+  paged; UID columns link to the user page. Codex Sol: one low finding (UUID-looking text linked) fixed, then PASS.
 - Deployed 2026-10-03; `ADMIN_UIDS` in the host `.env` (the user's UID). More admins: add UIDs, recreate Auth.
 
 ## Auth-only Work While Waiting, part 2 (2026-09-29)

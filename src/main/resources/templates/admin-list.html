@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head(${list == 'reports' ? '신고' : '피드백'})}"></head>
+<body>
+<header th:replace="~{fragments :: admin-top}"></header>
+<main class="wide">
+  <section class="panel">
+    <h1 class="spaced" th:text="${list == 'reports' ? 'Sync 이용자 신고' : 'Sync 피드백 · 버그 리포트'}">Sync 이용자 신고</h1>
+    <div th:replace="~{fragments :: report(${report})}"></div>
+    <p class="pager">
+      <a th:if="${page > 0}" th:href="@{/admin/sync/{l}(l=${list}, page=${page - 1})}">← 이전</a>
+      <a th:if="${report.more}" th:href="@{/admin/sync/{l}(l=${list}, page=${page + 1})}">다음 →</a>
+    </p>
+  </section>
+</main>
+</body>
+</html>

@@ -46,6 +46,10 @@
       <section class="panel" th:each="p : ${products}">
         <h2 th:text="${p.name}">Mirattic Sync</h2>
         <div th:replace="~{fragments :: report(${p})}"></div>
+        <p class="pager" th:if="${p.name == 'Mirattic Sync'}">
+          <a th:href="@{/admin/sync/reports}">신고 전체 보기 →</a>
+          <a th:href="@{/admin/sync/feedback}">피드백 전체 보기 →</a>
+        </p>
       </section>
     </div>
   </th:block>

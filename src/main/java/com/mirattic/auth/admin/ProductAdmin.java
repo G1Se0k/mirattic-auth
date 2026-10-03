@@ -13,7 +13,7 @@ import org.springframework.web.client.RestClientException;
 
 /**
  * Sync / Flow data for the admin console, read over a back-channel (docs/admin.md "Product reads"): GET {url}/stats and
- * GET {url}/users/{uid} with a `purpose: admin_read` order. Each product decides what it shows, as label/value facts
+ * GET {url}/users/{uid} (Sync also {url}/reports, {url}/feedback) with a `purpose: admin_read` order. Each product decides what it shows, as label/value facts
  * and small tables; Auth only renders them. Read-only. A product that doesn't answer shows as an error, not a failure.
  */
 @Component
@@ -24,12 +24,12 @@ class ProductAdmin {
 	record Table(String title, List<String> columns, List<List<String>> rows) {
 	}
 
-	/** What a product sends. */
-	record Body(List<List<String>> facts, List<Table> tables) {
+	/** What a product sends. `more`: a paged list has a next page. */
+	record Body(List<List<String>> facts, List<Table> tables, Boolean more) {
 	}
 
 	/** `error` set: nothing else is. */
-	record Report(String name, List<List<String>> facts, List<Table> tables, String error) {
+	record Report(String name, List<List<String>> facts, List<Table> tables, boolean more, String error) {
 	}
 
 	private record Product(String clientId, String name, String url) {
@@ -61,6 +61,11 @@ class ProductAdmin {
 		return products.stream().map(p -> read(p, "/users/" + uid, adminUid)).toList();
 	}
 
+	/** Sync's full lists (`reports`, `feedback`), one page. */
+	Report syncList(String list, int page, String adminUid) {
+		return read(products.getFirst(), "/" + list + "?page=" + page, adminUid);
+	}
+
 	private Report read(Product p, String path, String adminUid) {
 		try {
 			Body body = http.get().uri(p.url() + path)
@@ -70,10 +75,10 @@ class ProductAdmin {
 				throw new RestClientException("empty");
 			}
 			return new Report(p.name(), body.facts() == null ? List.of() : body.facts(),
-					body.tables() == null ? List.of() : body.tables(), null);
+					body.tables() == null ? List.of() : body.tables(), Boolean.TRUE.equals(body.more()), null);
 		} catch (RestClientException e) {
 			log.warn("{} admin read failed: {}", p.clientId(), e.getClass().getSimpleName());
-			return new Report(p.name(), List.of(), List.of(), "응답을 받지 못했습니다.");
+			return new Report(p.name(), List.of(), List.of(), false, "응답을 받지 못했습니다.");
 		}
 	}
 }

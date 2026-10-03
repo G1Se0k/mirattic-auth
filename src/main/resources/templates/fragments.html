@@ -19,10 +19,14 @@
 
 <header class="top" th:fragment="admin-top">
   <a class="brand" th:href="@{/admin}"><img th:src="@{/mark.svg}" alt="">Mirattic <span>관리자</span></a>
-  <a th:href="@{/account}">내 계정</a>
+  <nav class="admin-nav">
+    <a th:href="@{/admin/sync/reports}">신고</a>
+    <a th:href="@{/admin/sync/feedback}">피드백</a>
+    <a th:href="@{/account}">내 계정</a>
+  </nav>
 </header>
 
-<!-- A product's admin report (ProductAdmin.Report): facts, then tables. -->
+<!-- A product's admin report (ProductAdmin.Report): facts, then tables. A cell of a column titled "...UID" links to that user's page. -->
 <div th:fragment="report(p)">
   <p class="note error" th:if="${p.error}" th:text="${p.error}"></p>
   <dl class="facts" th:unless="${p.facts.isEmpty()}">
@@ -34,7 +38,14 @@
       <table class="list">
         <thead><tr><th th:each="c : ${t.columns}" th:text="${c}">열</th></tr></thead>
         <tbody>
-          <tr th:each="r : ${t.rows}"><td th:each="v : ${r}" th:text="${v}">값</td></tr>
+          <tr th:each="r : ${t.rows}">
+            <td th:each="v, i : ${r}" th:class="${v != null and v.length() > 40} ? 'long'"
+                th:with="uid=${i.index < t.columns.size() and t.columns[i.index].contains('UID') and v != null
+                    and v.matches('[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')}">
+              <a th:if="${uid}" th:href="@{/admin/users/{id}(id=${v})}" th:title="${v}" th:text="${v.substring(0, 8)}">uid</a>
+              <th:block th:unless="${uid}" th:text="${v}">값</th:block>
+            </td>
+          </tr>
           <tr th:if="${t.rows.isEmpty()}"><td th:colspan="${t.columns.size()}" class="muted">없음</td></tr>
         </tbody>
       </table>

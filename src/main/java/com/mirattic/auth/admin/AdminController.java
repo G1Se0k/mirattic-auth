@@ -159,6 +159,17 @@ class AdminController {
 		return "admin-user";
 	}
 
+	/** Sync's user reports and feedback / bug reports, all of them, 50 per page. */
+	@GetMapping("/sync/{list:reports|feedback}")
+	String syncList(@PathVariable String list, @RequestParam(defaultValue = "0") int page, Authentication auth,
+			Model model) {
+		int p = Math.max(page, 0);
+		model.addAttribute("list", list);
+		model.addAttribute("page", p);
+		model.addAttribute("report", products.syncList(list, p, auth.getName()));
+		return "admin-list";
+	}
+
 	@PostMapping("/users/{id}/suspend")
 	String suspend(@PathVariable String id, Authentication auth) {
 		if (stale(auth)) {

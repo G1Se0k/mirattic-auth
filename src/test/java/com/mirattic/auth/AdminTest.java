@@ -65,7 +65,7 @@ class AdminTest extends IntegrationTest {
 
 		SocialStub.ADMIN_READS.clear();
 		String user = page(admin, "/admin/users/" + uid);
-		assertThat(user).contains(email, "LOCAL", "3&lt;b&gt;", "영희", "응답을 받지 못했습니다.");
+		assertThat(user).contains(email, "LOCAL", "3&lt;b&gt;", "응답을 받지 못했습니다.");
 		assertThat(user).doesNotContain("{bcrypt}");
 		String sync = SocialStub.ADMIN_READS.stream().filter(r -> r.startsWith("sync ")).findFirst().orElseThrow();
 		assertThat(sync).startsWith("sync /users/" + uid + " ");
@@ -74,6 +74,24 @@ class AdminTest extends IntegrationTest {
 		assertThat((String) JsonPath.read(order, "$.sub")).isEqualTo(ADMIN);
 		assertThat((String) JsonPath.read(order, "$.purpose")).isEqualTo("admin_read");
 		assertThat(order).doesNotContain("scope");
+	}
+
+	@Test
+	void syncReportsAndFeedbackAreListedInFullWithUidsLinked() throws Exception {
+		Cookie admin = login(ADMIN_EMAIL, "admin-password");
+		SocialStub.ADMIN_READS.clear();
+		String reports = page(admin, "/admin/sync/reports?page=2");
+		assertThat(reports).contains("Sync 이용자 신고", "/admin/users/" + SocialStub.ADMIN_ROW_UID, "다음 →",
+				"/admin/sync/reports?page=1");
+		// UUID-looking text outside a UID column (e.g. in a message) stays full text, not a link.
+		String text = SocialStub.ADMIN_ROW_UID.replace("b1", "c1");
+		assertThat(reports).contains(text).doesNotContain("/admin/users/" + text);
+		assertThat(SocialStub.ADMIN_READS).singleElement().asString().startsWith("sync /reports ");
+		assertThat(page(admin, "/admin/sync/feedback")).contains("Sync 피드백 · 버그 리포트");
+		mvc.perform(get("/admin/sync/users").cookie(admin)).andExpect(status().isNotFound());
+		String email = email();
+		signup(email, "password-1", "Plain");
+		mvc.perform(get("/admin/sync/reports").cookie(login(email, "password-1"))).andExpect(status().isForbidden());
 	}
 
 	@Test
