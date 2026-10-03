@@ -60,6 +60,8 @@ class AdminTest extends IntegrationTest {
 		Cookie admin = login(ADMIN_EMAIL, "admin-password");
 		assertThat(page(admin, "/admin?q=" + email)).contains("검색대상", "/admin/users/" + uid);
 		assertThat(page(admin, "/admin?q=" + uid)).contains("검색대상");
+		// A page far past the end is empty, not an error.
+		assertThat(page(admin, "/admin?page=" + Integer.MAX_VALUE)).doesNotContain("검색대상");
 		// LIKE wildcards are literal.
 		assertThat(page(admin, "/admin?q=%25")).doesNotContain("검색대상");
 

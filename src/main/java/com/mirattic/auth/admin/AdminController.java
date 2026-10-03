@@ -81,7 +81,7 @@ class AdminController {
 	String index(@RequestParam(defaultValue = "") String q, @RequestParam(defaultValue = "0") int page,
 			Authentication auth, Model model) {
 		String query = q.strip();
-		int offset = Math.max(page, 0) * PAGE;
+		long offset = (long) Math.max(page, 0) * PAGE; // long: a huge page is empty, not a negative OFFSET
 		String like = "%" + query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
 		List<UserRow> users = jdbc.query("""
 				SELECT u.id, u.display_name, (%s),
