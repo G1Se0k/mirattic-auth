@@ -119,6 +119,13 @@ Cutover, one service at a time (Flow → Sync → Auth, then mirattic.com), each
    `DEPLOY_DIR=apps/mirattic-<name>`, `DEPLOY_PLATFORM=linux/amd64`, secrets `DEPLOY_SSH_KEY` (new key) and
    `DEPLOY_KNOWN_HOSTS` (new host key); Flow: secrets `DEPLOY_HOST/USER/PATH/SSH_KEY`,
    `DEPLOY_HOST_FINGERPRINT`, variable `DEPLOY_PLATFORM=linux/amd64`. Re-enable deploys, run one.
+Lessons from the Flow cutover (2026-10-03):
+- Put the site block into Caddy only once DNS points here: before that its HTTP-01 challenge reaches the Mac and
+  fails, and Caddy's retry backoff kept Flow down ~8 min instead of ~2.
+- appleboy (Flow) checks the ECDSA host key: `DEPLOY_HOST_FINGERPRINT` =
+  `SHA256:7Bw1x5VStCaYjcTP1tD+gMKCViR+c/FH+ySqrZziPR0` (ED25519 is `SHA256:utgeijagYu2g…`). For Auth / Sync
+  `DEPLOY_KNOWN_HOSTS` = `ssh-keyscan <LIGHTSAIL_IP>` (all key types), checked against the host's own keys.
+- Writing GitHub secrets (the deploy key) is done by the user (`gh secret set`): blocked for Claude.
 Rollback: DNS back to the Mac and start its container again (its data is untouched; writes after the switch are
 lost).
 After the move: `rotate-signing-key.sh retire`, Lightsail automatic snapshots, Mac kept 1–2 weeks.

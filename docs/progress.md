@@ -112,7 +112,9 @@ Create the central Mirattic Auth project and finalize the first deployable authe
   Rehearsal done 2026-10-03 with the real backups (`deployment.md` "Host move": 35–57 s per service, all routes OK
   through Caddy, JWKS = production's current key; the old previous key is not carried over = retired). The rehearsal
   stack keeps running on the new host until the cutover restores fresh dumps over it.
-  Still to do: the Mac's Caddyfile (mirattic.com block), cutover, Lightsail snapshots.
+  **Flow moved 2026-10-03 17:09 KST** (DNS → Lightsail, fresh 17:04 dump, browser login checked by the user, CI
+  deploys amd64 images to Lightsail: run 37109334204). Mac: Flow app containers stopped, its MySQL kept for rollback.
+  Still to do: Sync, Auth, mirattic.com (rsync path ready in `Mirattic/main`), Lightsail snapshots.
 
 ## Auth-only Work While Waiting, part 2 (2026-09-29)
 - Deploy automation: `.github/workflows/ci.yml` (test → arm64 image → SSH → `deploy/deploy.sh`, gated by repo variable `DEPLOY_ENABLED`), `deploy.sh` (first-run secret generation incl. client secrets, health check, rollback), `backup.sh` (daily DB + signing key, 7 days)
@@ -224,8 +226,8 @@ Not changed: Sync / Flow code (user request: do not touch yet).
 - Sync's one pre-migration test account (production, 2026-09-28) lost its legacy login; signing in with a Mirattic account of any email creates a separate Sync profile.
 
 ## Next Task
-0. Lightsail move (Known Decisions 2026-10-03, `deployment.md` "Host move"): cutover per service
-   (Flow → Sync → Auth, then mirattic.com) with the user's approval; first read the Mac's Caddyfile.
+0. Lightsail move (Known Decisions 2026-10-03, `deployment.md` "Host move"): Flow done; next Sync, then Auth,
+   then mirattic.com, each with the user's approval.
 1. Key rotation, first run on the host 2026-09-30 05:12 KST: `rotate` → current `CKintvYOWY6h…`, previous
    `gp5pPSkcKIyO…` published (JWKS 2 public keys), a second `rotate` refused, backups before and after. Still to do:
    a Sync / Flow sign-in with the new key, then `deploy/rotate-signing-key.sh retire` from 2026-10-01.
