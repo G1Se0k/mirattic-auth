@@ -137,7 +137,7 @@ Create the central Mirattic Auth project and finalize the first deployable authe
   feedback, workspaces; no chat / issue contents, not what a Sync room is watching). Sync's order check generalized
   (`AccountController.order(purpose)`).
 - Tests: Auth 74, Sync and Flow full suites pass. UI checked in a local preview (desktop). Codex Sol (gpt-6-sol): PASS.
-- To use: put the operator's UID (account page "계정 ID") in the host `.env` as `ADMIN_UIDS`, recreate Auth.
+- Deployed 2026-10-03; `ADMIN_UIDS` in the host `.env` (the user's UID). More admins: add UIDs, recreate Auth.
 
 ## Auth-only Work While Waiting, part 2 (2026-09-29)
 - Deploy automation: `.github/workflows/ci.yml` (test → arm64 image → SSH → `deploy/deploy.sh`, gated by repo variable `DEPLOY_ENABLED`), `deploy.sh` (first-run secret generation incl. client secrets, health check, rollback), `backup.sh` (daily DB + signing key, 7 days)
@@ -258,7 +258,7 @@ Not changed: Sync / Flow code (user request: do not touch yet).
 3. Off-host backup copy (DB + signing key, encrypted); Google: create the OAuth client (`deployment.md`), put its
    id / secret in the host `.env`, then deploy; Apple when its console is ready.
 4. Codex Sol review of Phases 5 and 7 when quota returns.
-5. Admin console: set `ADMIN_UIDS` on the host (user's UID), then check `/admin` live. Later, if wanted: editing
-   product data, product-side activity stats (exact DAU).
+5. Admin console deployed 2026-10-03 (Auth, Sync, Flow), `ADMIN_UIDS` set on the host (the user's UID), V7 applied.
+   User to check `/admin` live. Later, if wanted: editing product data, product-side activity stats (exact DAU).
 6. Optional: adding email + password to a Kakao / Naver-only account (needs a decision on email ownership);
    DMARC `p=quarantine`; rotate the Resend API key (shared in chat).
