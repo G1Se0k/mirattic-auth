@@ -121,8 +121,9 @@ Create the central Mirattic Auth project and finalize the first deployable authe
   without sign-in: the first copy failed because backup.sh read the key from the stopped app → now read from the
   volume). Mac: Auth app stopped, its MySQL kept for rollback.
   **mirattic.com moved 17:46 KST** (rsync deploy from `Mirattic/main`, no downtime). Move copies and rehearsal
-  images removed from the new host. Still to do: Lightsail automatic snapshots (user, console), Mac cleanup
-  ~2026-10-17 (Mirattic containers / volumes, launchd backup agents, Caddy blocks; monivillage stays).
+  images removed from the new host. Mac cleaned the same day except the MySQL / signing-key
+  volumes (`deployment.md` "Host move"). Still to do: Lightsail automatic snapshots (user, console); delete those
+  Mac volumes ~2026-10-17.
 
 ## Auth-only Work While Waiting, part 2 (2026-09-29)
 - Deploy automation: `.github/workflows/ci.yml` (test → arm64 image → SSH → `deploy/deploy.sh`, gated by repo variable `DEPLOY_ENABLED`), `deploy.sh` (first-run secret generation incl. client secrets, health check, rollback), `backup.sh` (daily DB + signing key, 7 days)
@@ -234,8 +235,8 @@ Not changed: Sync / Flow code (user request: do not touch yet).
 - Sync's one pre-migration test account (production, 2026-09-28) lost its legacy login; signing in with a Mirattic account of any email creates a separate Sync profile.
 
 ## Next Task
-0. Lightsail move done 2026-10-03 (`deployment.md` "Host move"): user turns on automatic snapshots; Mac cleanup
-   ~2026-10-17 with the user's approval.
+0. Lightsail move done 2026-10-03 (`deployment.md` "Host move"): user turns on automatic snapshots; delete the kept
+   Mac volumes ~2026-10-17 with the user's approval.
 1. Key rotation: done in effect. The 2026-09-30 rotation's previous key was not carried to Lightsail, so only
    `CKintvYOWY6h` is published since 2026-10-03 (= `retire`). A browser sign-in to Sync / Flow through the new Auth
    host is still to be confirmed by the user.

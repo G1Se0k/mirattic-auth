@@ -82,8 +82,12 @@ passes `$` unchanged into the container). Not run: the CI deploy job and launchd
 `ssh -i ~/.ssh/mirattic-prod.pem ubuntu@<LIGHTSAIL_IP>` (sudo, Caddy at `/etc/caddy/Caddyfile`); services as
 `deploy` under `~/apps/mirattic-{auth,sync,flow}`, mirattic.com files in `/var/www/mirattic`. The sections above
 that name the Mac host (`~/Documents/…`, launchd, Homebrew Caddy) describe the old host; CI targets the new one
-through the repo variables / secrets below. The Mac still runs monivillage and keeps the stopped stacks' MySQL
-for rollback until about 2026-10-17, then its Mirattic containers, launchd backup agents and Caddy blocks go.
+through the repo variables / secrets below. Mac cleaned 2026-10-03: Mirattic containers, images, build cache,
+launchd backup agents, clones (with their env files), old backups, Caddy blocks (only monivillage left; previous
+file `Caddyfile.before-lightsail-cleanup`) and the CI keys of the moved repos are gone. Kept for rollback until
+about 2026-10-17: volumes `mirattic-{auth,sync}_mysql-data`, `mirattic-flow-prod_mysql-data`,
+`mirattic-auth_signing-key` and the older `miratticflow_mysql-data` (compose files from git, env files from the
+new host).
 New host: Lightsail Seoul, 4 GB general purpose ($24/mo), Ubuntu 24.04 x86_64, static IP `<LIGHTSAIL_IP>`, KST.
 Set up: 2 GB swap, docker.io + compose v2, Caddy 2.11 (official apt repo; 2.6 lacks `client_ip_headers`), fail2ban,
 ufw (22 open for CI, key-only; 80/443 only from Cloudflare's ranges — refresh from cloudflare.com/ips if they change),
