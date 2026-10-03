@@ -93,6 +93,7 @@ Set up: 2 GB swap, docker.io + compose v2, Caddy 2.11 (official apt repo; 2.6 la
 ufw (22 open for CI, key-only; 80/443 only from Cloudflare's ranges — refresh from cloudflare.com/ips if they change;
 Cloudflare SSL mode Full (strict) since 2026-10-03, a Configuration Rule keeps `monivillage` (Mac, `tls internal`) on Full),
 `/etc/docker/daemon.json` caps container logs (json-file 10m × 3; containers recreated 2026-10-03 to apply it),
+AWS root MFA on and a $30 monthly budget alert (user, 2026-10-03),
 cron active. User `deploy` (docker group) for CI; its key is `~/.ssh/mirattic-deploy-lightsail` on the admin Mac
 (not yet in any GitHub secret). Admin login: `ubuntu` with the Lightsail key.
 
