@@ -82,7 +82,10 @@ public class AccountService {
 		if (!EMAIL.matcher(normalized).matches() || normalized.length() > 254) {
 			throw new AccountException("올바른 이메일을 입력하세요.");
 		}
-		String name = validDisplayName(displayName);
+		String name = fitName(displayName);
+		if (name.isEmpty()) {
+			throw new AccountException("이름을 입력하세요.");
+		}
 		checkPassword(password);
 		claimSignupSlot(clientIp);
 		String id = UUID.randomUUID().toString();
@@ -269,12 +272,32 @@ public class AccountService {
 		}
 	}
 
+	/** Names fit in 20 units: a non-ASCII character (Hangul etc.) counts 2, so 10 Korean or 20 English letters. */
+	static final int NAME_UNITS = 20;
+
+	/** A changed name over the limit is refused, so the user sees it and picks one. */
 	private static String validDisplayName(String displayName) {
 		String name = displayName == null ? "" : displayName.strip();
-		if (name.isEmpty() || name.length() > 64) {
-			throw new AccountException("이름은 1~64자여야 합니다.");
+		if (name.isEmpty() || !fitName(name).equals(name)) {
+			throw new AccountException("이름은 한글 10자, 영어 20자까지입니다.");
 		}
 		return name;
+	}
+
+	/** A new account's name (typed or from Kakao / Naver / Google): stripped and cut to fit; "" if blank. */
+	public static String fitName(String displayName) {
+		String name = displayName == null ? "" : displayName.strip();
+		int units = 0;
+		int end = 0;
+		while (end < name.length()) {
+			int c = name.codePointAt(end);
+			units += c < 0x80 ? 1 : 2;
+			if (units > NAME_UNITS) {
+				break;
+			}
+			end += Character.charCount(c);
+		}
+		return name.substring(0, end).strip();
 	}
 
 	static String normalizeEmail(String email) {

@@ -243,11 +243,8 @@ public class SocialLogin implements OAuth2UserService<OAuth2UserRequest, OAuth2U
 	}
 
 	private static String displayName(Profile p) {
-		String n = p.name() == null ? "" : p.name().strip();
-		if (n.isEmpty()) {
-			return providerName(p.provider()) + " 사용자";
-		}
-		return n.length() > 64 ? n.substring(0, 64) : n;
+		String n = AccountService.fitName(p.name());
+		return n.isEmpty() ? providerName(p.provider()) + " 사용자" : n;
 	}
 
 	private static String str(Object o) {

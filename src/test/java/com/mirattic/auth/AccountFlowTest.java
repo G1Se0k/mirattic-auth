@@ -17,6 +17,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.jayway.jsonpath.JsonPath;
 import com.mirattic.auth.account.AccountException;
+import com.mirattic.auth.account.AccountService;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Base64;
@@ -49,6 +50,13 @@ class AccountFlowTest extends IntegrationTest {
 				.andExpect(redirectedUrl("/login?signup"));
 		String uid = jdbc.queryForObject("SELECT user_id FROM user_identities WHERE subject = ?", String.class, email);
 		assertThat(accounts.find(uid).displayName()).isEqualTo("기석");
+		// A new account's name over the limit is cut: 10 Korean, 20 English, mixed by width (Hangul counts 2).
+		assertThat(accounts.find(signup(email(), "password-1", "가나다라마바사아자차카타")).displayName())
+				.isEqualTo("가나다라마바사아자차");
+		assertThat(accounts.find(signup(email(), "password-1", "abcdefghijklmnopqrstuvwxyz")).displayName())
+				.isEqualTo("abcdefghijklmnopqrst");
+		assertThat(AccountService.fitName("ab 가나다라마바사아자차")).isEqualTo("ab 가나다라마바사아");
+		assertThat(AccountService.fitName("  ")).isEmpty();
 
 		String body = exchange(authorize(login(email, "correct horse")));
 
@@ -200,6 +208,13 @@ class AccountFlowTest extends IntegrationTest {
 		mvc.perform(post("/account/name").with(csrf()).cookie(session).param("displayName", "After"))
 				.andExpect(redirectedUrl("/account?saved"));
 		assertThat(accounts.find(uid).displayName()).isEqualTo("After");
+		// A changed name over 10 Korean / 20 English letters is refused, not cut.
+		mvc.perform(post("/account/name").with(csrf()).cookie(session).param("displayName", "가나다라마바사아자차카"))
+				.andExpect(status().isOk())
+				.andExpect(content().string(org.hamcrest.Matchers.containsString("한글 10자, 영어 20자")));
+		assertThat(accounts.find(uid).displayName()).isEqualTo("After");
+		mvc.perform(post("/account/name").with(csrf()).cookie(session).param("displayName", "가나다라마바사아자차"))
+				.andExpect(redirectedUrl("/account?saved"));
 
 		mvc.perform(post("/account/password").with(csrf()).cookie(session)
 						.param("currentPassword", "wrong-pass").param("password", "password-2"))

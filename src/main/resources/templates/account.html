@@ -48,7 +48,7 @@
     <section>
       <h2>이름</h2>
       <form method="post" th:action="@{/account/name}" class="row">
-        <input name="displayName" maxlength="64" required th:value="${account.displayName}" aria-label="이름">
+        <input name="displayName" maxlength="20" required th:value="${account.displayName}" aria-label="이름">
         <button type="submit" class="primary">저장</button>
       </form>
     </section>

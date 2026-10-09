@@ -99,7 +99,7 @@ class SocialLoginTest extends IntegrationTest {
 		assertThat(saved.getRedirectedUrl()).endsWith("/login");
 
 		String kakaoId = providerId();
-		SignIn in = signIn("kakao", kakao(kakaoId, null, "앱에서온사람"), saved.getCookie("SESSION"));
+		SignIn in = signIn("kakao", kakao(kakaoId, null, "앱에서온아주긴카카오닉네임"), saved.getCookie("SESSION"));
 		assertThat(in.redirect()).contains("/oauth2/authorize");
 		String location = mvc.perform(get(URI.create(in.redirect())).cookie(in.session()))
 				.andExpect(status().is3xxRedirection()).andReturn().getResponse().getRedirectedUrl();
@@ -112,7 +112,7 @@ class SocialLoginTest extends IntegrationTest {
 		String uid = jdbc.queryForObject("SELECT user_id FROM user_identities WHERE provider = 'KAKAO' AND subject = ?",
 				String.class, kakaoId);
 		assertThat((String) JsonPath.read(claims, "$.sub")).isEqualTo(uid);
-		assertThat((String) JsonPath.read(claims, "$.name")).isEqualTo("앱에서온사람");
+		assertThat((String) JsonPath.read(claims, "$.name")).isEqualTo("앱에서온아주긴카카오"); // cut to 10 Korean letters
 		assertThat(((Number) JsonPath.read(claims, "$.auth_time")).longValue())
 				.isCloseTo(System.currentTimeMillis() / 1000, org.assertj.core.data.Offset.offset(30L));
 		assertThat(claims).doesNotContain("\"email\""); // Kakao gave none
