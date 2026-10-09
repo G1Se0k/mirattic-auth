@@ -3,7 +3,7 @@
 ## users
 ```text
 id UUID PK
-display_name VARCHAR(64)   -- ≤ 20 units, ASCII 1 / other 2 (10 Korean, 20 English); new accounts cut, renames refused. Older longer names kept
+display_name VARCHAR(64)   -- ≤ 20 units, ASCII 1 / other 2 (10 Korean, 20 English); new accounts cut, renames refused (also in Flow). Older longer names kept
 status ACTIVE | SUSPENDED | DISABLED | DELETED   -- SUSPENDED: admin (admin.md); DISABLED: deletion fence
 created_at
 updated_at

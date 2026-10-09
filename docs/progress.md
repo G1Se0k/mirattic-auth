@@ -130,7 +130,8 @@ Create the central Mirattic Auth project and finalize the first deployable authe
 - User request: names at most 10 Korean / 20 English letters; a new signup's longer name is cut automatically.
 - `AccountService.fitName`: 20 units, ASCII 1, any other character 2. Email signup and Kakao / Naver / Google first
   sign-in cut; renaming on the account page refuses ("이름은 한글 10자, 영어 20자까지입니다."). Existing longer names are
-  left as they are. Forms `maxlength=20` (hint only). Flow's own in-app rename (50 chars) is unchanged.
+  left as they are (user decision). Forms `maxlength=20` (hint only). Flow's in-app rename: same rule, refused over
+  the limit (Flow commit, Codex Sol PASS after two fixes).
 - Tests: Auth 75 pass. Codex Sol (gpt-6-sol): PASS.
 
 ## Admin Console (2026-10-03)
