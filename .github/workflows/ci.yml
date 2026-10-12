@@ -32,7 +32,10 @@ jobs:
       HOST: ${{ secrets.DEPLOY_HOST }}
       DIR: ${{ vars.DEPLOY_DIR || 'Documents/mirattic-auth' }}
     steps:
-      - run: test -n "$HOST" || { echo "::error::secret DEPLOY_HOST is not set" >&2; exit 1; }
+      - run: |
+          test -n "$HOST" || { echo "::error::secret DEPLOY_HOST is not set" >&2; exit 1; }
+          # The secret is masked whole; an SSH error may print the host alone, so mask that too.
+          echo "::add-mask::${HOST#*@}"
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with:
