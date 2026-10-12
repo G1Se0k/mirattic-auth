@@ -27,10 +27,12 @@ jobs:
     runs-on: ubuntu-latest
     concurrency: deploy-auth
     env:
-      # Repo variables switch the host (docs/deployment.md "Host move"); the defaults are the Mac host.
-      HOST: ${{ vars.DEPLOY_HOST || 'giseok@ssh.mirattic.com' }}
+      # The host is a secret, masked in the public logs, with no fallback: unset fails the deploy below rather than
+      # reaching an old host. The dir and platform are repo variables (docs/deployment.md "Host move").
+      HOST: ${{ secrets.DEPLOY_HOST }}
       DIR: ${{ vars.DEPLOY_DIR || 'Documents/mirattic-auth' }}
     steps:
+      - run: test -n "$HOST" || { echo "::error::secret DEPLOY_HOST is not set" >&2; exit 1; }
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with:

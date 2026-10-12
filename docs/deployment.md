@@ -128,7 +128,8 @@ Cutover, one service at a time (Flow → Sync → Auth, then mirattic.com), each
 5. Caddy: the real site block (no `tls internal`); Cloudflare DNS → `<LIGHTSAIL_IP>` (proxied). Caddy then gets the
    certificate by HTTP-01 through Cloudflare (as on the Mac), so expect a few seconds of errors. Check health, a
    browser login, Sync and Flow.
-6. Point CI at the new host: Auth / Sync repo variables `DEPLOY_HOST=deploy@<LIGHTSAIL_IP>`,
+6. Point CI at the new host: Auth / Sync secret `DEPLOY_HOST=deploy@<LIGHTSAIL_IP>` (a secret since the repos went
+   public, 2026-10-12: masked in the logs), repo variables
    `DEPLOY_DIR=apps/mirattic-<name>`, `DEPLOY_PLATFORM=linux/amd64`, secrets `DEPLOY_SSH_KEY` (new key) and
    `DEPLOY_KNOWN_HOSTS` (new host key); Flow: secrets `DEPLOY_HOST/USER/PATH/SSH_KEY`,
    `DEPLOY_HOST_FINGERPRINT`, variable `DEPLOY_PLATFORM=linux/amd64`. Re-enable deploys, run one.
