@@ -130,8 +130,8 @@ Create the central Mirattic Auth project and finalize the first deployable authe
 User decisions: upload only (no import of Kakao / Naver / Google photos); R2 public custom domain (no Auth proxy).
 Done: V8 `users.avatar_key`; `Avatars` (re-encode 512×512 JPEG, step-down scaling, ≤ 10 MB, R2 via AWS SDK S3 client, `AvatarStorage`); `/account` upload /
 remove; `picture` claim (ID token + UserInfo, `profile` scope); deletion removes the R2 object; `AvatarTest`, `AvatarsTest`;
-all 77 tests pass. Codex Sol review: 3 findings (concurrent swaps / remove, storage off during deletion, DB failure after put) fixed with a per-account row lock, remove() failing when a photo exists but R2 is not configured, and cleanup of the new object on failure; Re-review (2 more): decoding limited to one at a time (others get a retry message), multipart request cap 13MB; fixed. Not yet: R2 bucket / token / custom domain + host `.env`, a real upload against R2,
-Sync / Flow showing `picture`.
+all 77 tests pass. Codex Sol review: 3 findings (concurrent swaps / remove, storage off during deletion, DB failure after put) fixed with a per-account row lock, remove() failing when a photo exists but R2 is not configured, and cleanup of the new object on failure; Re-review (2 more): decoding limited to one at a time (others get a retry message), multipart request cap 13MB; fixed. Deployed 2026-11-11 (V8 applied, R2 vars in the host `.env`, `.env.bak-before-r2` kept there); upload and display checked live by the user.
+Not yet: Sync / Flow showing `picture`.
 Known limits: EXIF orientation not applied (a rotated phone photo stays rotated); HEIC / WebP uploads refused; a failed
 R2 delete of a *replaced* photo leaves an orphan object (logged); a photo set without R2 config cannot be shown.
 
