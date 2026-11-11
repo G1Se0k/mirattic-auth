@@ -126,6 +126,15 @@ Create the central Mirattic Auth project and finalize the first deployable authe
   the user. Automatic snapshots left off for now (user, 2026-10-03): after the Mac volumes go (~2026-10-17) the only
   backups are on the Lightsail host itself.
 
+## Profile Photo (2026-11-11)
+User decisions: upload only (no import of Kakao / Naver / Google photos); R2 public custom domain (no Auth proxy).
+Done: V8 `users.avatar_key`; `Avatars` (re-encode 512×512 JPEG, step-down scaling, ≤ 10 MB, R2 via AWS SDK S3 client, `AvatarStorage`); `/account` upload /
+remove; `picture` claim (ID token + UserInfo, `profile` scope); deletion removes the R2 object; `AvatarTest`, `AvatarsTest`;
+all 77 tests pass. Codex Sol review: 3 findings (concurrent swaps / remove, storage off during deletion, DB failure after put) fixed with a per-account row lock, remove() failing when a photo exists but R2 is not configured, and cleanup of the new object on failure; Re-review (2 more): decoding limited to one at a time (others get a retry message), multipart request cap 13MB; fixed. Not yet: R2 bucket / token / custom domain + host `.env`, a real upload against R2,
+Sync / Flow showing `picture`.
+Known limits: EXIF orientation not applied (a rotated phone photo stays rotated); HEIC / WebP uploads refused; a failed
+R2 delete of a *replaced* photo leaves an orphan object (logged); a photo set without R2 config cannot be shown.
+
 ## Display Name Limit (2026-10-09)
 - User request: names at most 10 Korean / 20 English letters; a new signup's longer name is cut automatically.
 - `AccountService.fitName`: 20 units, ASCII 1, any other character 2. Email signup and Kakao / Naver / Google first

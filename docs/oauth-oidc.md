@@ -39,7 +39,7 @@ Minimum:
 ```
 
 By granted scope (ID token and `/userinfo`):
-- `profile` → `name` (display name)
+- `profile` → `name` (display name), `picture` (profile photo URL, only when a photo is set; absent otherwise)
 - `email` → `email`, `email_verified` (always `false` until email verification exists — products must not
   trust it for account linking)
 

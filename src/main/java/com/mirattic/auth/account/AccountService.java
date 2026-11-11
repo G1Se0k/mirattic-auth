@@ -32,7 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AccountService {
 
 	/** `email`: the LOCAL identity's, else a social one's (may be null). `providers`: LOCAL, KAKAO, NAVER, GOOGLE. */
-	public record Account(String id, String displayName, String email, List<String> providers) {
+	public record Account(String id, String displayName, String email, List<String> providers, String avatarKey) {
 		public boolean hasPassword() {
 			return providers.contains("LOCAL");
 		}
@@ -177,10 +177,11 @@ public class AccountService {
 	public Account find(String userId) {
 		return jdbc.queryForObject("""
 				SELECT u.id, u.display_name, (%s),
-				  (SELECT GROUP_CONCAT(i.provider ORDER BY i.created_at) FROM user_identities i WHERE i.user_id = u.id)
+				  (SELECT GROUP_CONCAT(i.provider ORDER BY i.created_at) FROM user_identities i WHERE i.user_id = u.id),
+				  u.avatar_key
 				FROM users u WHERE u.id = ?
 				""".formatted(CONTACT_EMAIL), (rs, n) -> new Account(rs.getString(1), rs.getString(2), rs.getString(3),
-				rs.getString(4) == null ? List.of() : List.of(rs.getString(4).split(","))), userId);
+				rs.getString(4) == null ? List.of() : List.of(rs.getString(4).split(",")), rs.getString(5)), userId);
 	}
 
 	/**

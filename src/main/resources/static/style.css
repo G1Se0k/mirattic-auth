@@ -400,3 +400,5 @@ h2.gap { margin-top: 22px; }
 h3 { margin: 16px 0 8px; font-size: 14px; font-weight: 650; }
 .admin-nav { display: flex; gap: 18px; font-size: 14px; }
 table.list td.long { white-space: normal; min-width: 220px; max-width: 420px; overflow-wrap: anywhere; }
+
+.avatar { display: block; border-radius: 50%; object-fit: cover; margin: 0 0 12px; }

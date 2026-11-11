@@ -33,7 +33,7 @@ class ExpiredDataCleanupTest extends IntegrationTest {
 				"sha256:" + "0".repeat(57) + UUID.randomUUID().toString().substring(0, 7), dead);
 
 		String user = UUID.randomUUID().toString();
-		jdbc.update("INSERT INTO users VALUES (?, 'x', 'ACTIVE', NOW(6), NOW(6))", user);
+		jdbc.update("INSERT INTO users (id, display_name, status, created_at, updated_at) VALUES (?, 'x', 'ACTIVE', NOW(6), NOW(6))", user);
 		String oldReset = UUID.randomUUID().toString();
 		String liveReset = UUID.randomUUID().toString();
 		jdbc.update("INSERT INTO password_reset_tokens VALUES (?, ?, ?, NOW(6) - INTERVAL 2 DAY, NULL, NOW(6))",

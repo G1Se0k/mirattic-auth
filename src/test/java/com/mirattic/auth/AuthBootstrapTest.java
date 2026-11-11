@@ -92,7 +92,7 @@ class AuthBootstrapTest extends IntegrationTest {
 	@Test
 	void localLoginResolvesToGlobalUidNotEmail() {
 		String uid = "11111111-1111-1111-1111-111111111111";
-		jdbc.update("INSERT INTO users VALUES (?, 'Tester', 'ACTIVE', NOW(6), NOW(6))", uid);
+		jdbc.update("INSERT INTO users (id, display_name, status, created_at, updated_at) VALUES (?, 'Tester', 'ACTIVE', NOW(6), NOW(6))", uid);
 		jdbc.update("INSERT INTO user_identities VALUES (UUID(), ?, 'LOCAL', 'a@mirattic.com', 'a@mirattic.com', ?, NOW(6), NOW(6))",
 				uid, passwordEncoder.encode("pw"));
 

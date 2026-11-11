@@ -52,6 +52,14 @@ Server-rendered on `/account` ("로그인 방법"). Rules in `security.md` "Acco
 - `POST /account/unlink/{kakao|naver}` (session + CSRF): `/account?unlinked`; refused for the last method.
 
 ## Account Deletion (Phase 5, `AccountDeletion`)
+## Profile Photo
+`POST /account/avatar` (session + CSRF, multipart `file`) and `POST /account/avatar/remove`. Shown on `/account` only when
+R2 is configured (`deployment.md`). The file (JPG / PNG, ≤ 10 MB, ≤ 16 M pixels) is decoded and re-encoded as a centre-cropped
+512×512 JPEG, so EXIF and any non-pixel payload never reach R2. Stored at `avatars/{uid}/{24 hex}.jpg` (new key per
+upload; the old object is deleted), served from the public R2 custom domain (`R2_PUBLIC_URL`, immutable cache).
+Only ACTIVE accounts can set one. Account deletion deletes the object first (an R2 failure fails the deletion, retried).
+Exposed as the `picture` claim under `profile` (`oauth-oidc.md`).
+
 `POST /account/delete` (session + CSRF, `confirm=true`, sign-in in the last 10 minutes else `/login?reauth`).
 0. Fence: `users.status` ACTIVE → DISABLED (only one deletion per account at a time; a second gets "이미 탈퇴를
    처리하고 있습니다") and every other browser session and app login ends. While fenced nobody signs in, no code is

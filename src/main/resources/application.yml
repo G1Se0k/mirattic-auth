@@ -1,4 +1,8 @@
 spring:
+  servlet:
+    multipart:
+      max-request-size: 13MB   # file + multipart boundaries / CSRF field
+      max-file-size: 12MB   # Avatars refuses over 10MB with a message; this only bounds the rest
   application:
     name: mirattic-auth
   datasource:
@@ -97,6 +101,7 @@ server:
         same-site: lax
         http-only: true
 
+
 auth:
   # Mirattic UIDs allowed into the admin console (/admin), comma-separated. Empty: nobody.
   admin-uids: ${ADMIN_UIDS:}
@@ -116,6 +121,13 @@ auth:
   admin:
     sync-url: ${SYNC_ADMIN_URL:https://sync.mirattic.com/api/internal/admin}
     flow-url: ${FLOW_ADMIN_URL:https://flow.mirattic.com/api/internal/admin}
+  # Profile photos in Cloudflare R2 (Avatars). Off unless endpoint, bucket and public-url are all set.
+  avatar:
+    endpoint: ${R2_ENDPOINT:}          # https://<account-id>.r2.cloudflarestorage.com
+    bucket: ${R2_BUCKET:}
+    access-key: ${R2_ACCESS_KEY_ID:}
+    secret-key: ${R2_SECRET_ACCESS_KEY:}
+    public-url: ${R2_PUBLIC_URL:}      # the bucket's custom domain, e.g. https://avatar.mirattic.com
   signing-key:
     path: ${AUTH_SIGNING_KEY_PATH:./.local/signing-key.jwk.json}
     # During a rotation: the key that was current before, published (public part) but no longer used to sign.

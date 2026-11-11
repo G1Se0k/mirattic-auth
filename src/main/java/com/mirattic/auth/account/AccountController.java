@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Value;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
 
 /** Auth's own pages. Passwords are only ever typed here, never into product clients. */
 @Controller
@@ -32,6 +34,7 @@ class AccountController {
 	private final Devices devices;
 	private final AccountDeletion deletion;
 	private final SecurityEvents events;
+	private final Avatars avatars;
 	private final boolean emailLogin;
 	private final SecurityContextLogoutHandler logout = new SecurityContextLogoutHandler();
 	private static final Set<String> PROVIDERS = Set.of("kakao", "naver", "google");
@@ -40,8 +43,9 @@ class AccountController {
 	private final RequestCache requestCache = new HttpSessionRequestCache();
 
 	AccountController(AccountService accounts, RegisteredClientRepository clients, Devices devices,
-			AccountDeletion deletion, SecurityEvents events, @Value("${auth.email-login}") boolean emailLogin) {
+			AccountDeletion deletion, SecurityEvents events, Avatars avatars, @Value("${auth.email-login}") boolean emailLogin) {
 		this.events = events;
+		this.avatars = avatars;
 		this.emailLogin = emailLogin;
 		this.accounts = accounts;
 		this.clients = clients;
@@ -132,6 +136,8 @@ class AccountController {
 	String account(Authentication auth, HttpSession session, Model model) {
 		AccountService.Account account = accounts.find(auth.getName());
 		model.addAttribute("account", account);
+		model.addAttribute("avatarsEnabled", avatars.enabled());
+		model.addAttribute("avatarUrl", avatars.url(account.avatarKey()));
 		model.addAttribute("signInMethods", accounts.signInMethods(account));
 		model.addAttribute("devices", devices.list(auth.getName(), session.getId()));
 		model.addAttribute("events", events.recent(auth.getName()));
@@ -216,6 +222,24 @@ class AccountController {
 		} catch (AccountException e) {
 			return accountWithError(auth, session, model, e);
 		}
+	}
+
+	@PostMapping("/account/avatar")
+	String setAvatar(Authentication auth, @RequestParam MultipartFile file, HttpSession session, Model model) {
+		try {
+			avatars.set(auth.getName(), file.getBytes());
+			return "redirect:/account?avatar";
+		} catch (AccountException e) {
+			return accountWithError(auth, session, model, e);
+		} catch (IOException e) {
+			return accountWithError(auth, session, model, new AccountException("사진을 읽을 수 없습니다."));
+		}
+	}
+
+	@PostMapping("/account/avatar/remove")
+	String removeAvatar(Authentication auth) {
+		avatars.remove(auth.getName());
+		return "redirect:/account?avatar";
 	}
 
 	@PostMapping("/account/password")

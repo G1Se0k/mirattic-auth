@@ -4,6 +4,7 @@
 ```text
 id UUID PK
 display_name VARCHAR(64)   -- ≤ 20 units, ASCII 1 / other 2 (10 Korean, 20 English); new accounts cut, renames refused (also in Flow). Older longer names kept
+avatar_key VARCHAR(128) NULL   -- R2 object key `avatars/{uid}/{random}.jpg` (V8), NULL = no photo
 status ACTIVE | SUSPENDED | DISABLED | DELETED   -- SUSPENDED: admin (admin.md); DISABLED: deletion fence
 created_at
 updated_at

@@ -48,7 +48,7 @@ Single source for client IDs and redirect URIs. Config: `src/main/resources/appl
 - `/oauth2/revoke` (client auth) revokes a refresh token.
 - Replaying an already-used authorization code revokes the tokens it issued.
 - All token values are stored hashed (`security.md`).
-- Claims: `sub` = Mirattic UID; `profile` → `name`; `email` → `email`, `email_verified: false`.
+- Claims: `sub` = Mirattic UID; `profile` → `name`, `picture` (optional: a public URL on Auth's R2 domain; clients show it, never copy the file); `email` → `email`, `email_verified: false`.
   `/userinfo` (Bearer access token) returns live values, limited to that access token's scopes
   (a refresh with a narrower `scope` narrows UserInfo too), and 401 for non-ACTIVE accounts.
 

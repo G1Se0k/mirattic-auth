@@ -216,5 +216,6 @@ docker compose up -d                                        # MySQL 8.4 on 3307 
 | `FLOW_ACCOUNT_DELETION_URL` / `SYNC_ACCOUNT_DELETION_URL` | optional; default `https://{flow,sync}.mirattic.com/api/internal/account-deletion` (`api.md` "Account Deletion"). Local profile: the products' dev ports |
 | `SIGNUP_IP_KEY` | HMAC key for signup-per-network hashes; `deploy.sh` generates it once on the host. Local/tests: random |
 | `EMAIL_LOGIN` | `true` reopens email sign-in / sign-up / reset. Default `false` (social only) |
+| `R2_ENDPOINT` / `R2_BUCKET` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_PUBLIC_URL` | profile photos (`api.md` "Profile Photo"). Optional: unset = the feature is off. Cloudflare: R2 bucket + API token (Object Read & Write, that bucket only) + the bucket's custom domain (e.g. `https://avatar.mirattic.com`) as `R2_PUBLIC_URL`; endpoint `https://<account-id>.r2.cloudflarestorage.com` |
 | `ADMIN_UIDS` | Mirattic UIDs allowed into the admin console `/admin`, comma-separated (`admin.md`). Default empty: nobody |
 | `SYNC_ADMIN_URL` / `FLOW_ADMIN_URL` | optional; default `https://{sync,flow}.mirattic.com/api/internal/admin` (`admin.md`) |

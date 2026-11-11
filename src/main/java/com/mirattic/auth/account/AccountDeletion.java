@@ -39,10 +39,12 @@ public class AccountDeletion {
 	private final JdbcTemplate jdbc;
 	private final TransactionTemplate tx;
 	private final AccountService accounts;
+	private final Avatars avatars;
 
 	AccountDeletion(@Value("${auth.account-deletion.flow-url}") String flowUrl,
 			@Value("${auth.account-deletion.sync-url}") String syncUrl, ProductOrders orders,
-			JdbcTemplate jdbc, TransactionTemplate tx, AccountService accounts) {
+			JdbcTemplate jdbc, TransactionTemplate tx, AccountService accounts, Avatars avatars) {
+		this.avatars = avatars;
 		this.products = List.of(new Product("mirattic-flow", "Mirattic Flow", flowUrl),
 				new Product("mirattic-sync", "Mirattic Sync", syncUrl));
 		this.orders = orders;
@@ -78,6 +80,7 @@ public class AccountDeletion {
 			for (Product p : products) {
 				deleteIn(p, userId);
 			}
+			avatars.remove(userId); // the photo goes from R2 too; if R2 fails, the whole deletion is retried
 			deleteHere(userId);
 		} catch (RuntimeException e) {
 			jdbc.update("UPDATE users SET status = 'ACTIVE', updated_at = NOW(6) WHERE id = ? AND status = 'DISABLED'",

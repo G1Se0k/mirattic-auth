@@ -29,7 +29,7 @@ class AdminTest extends IntegrationTest {
 
 	@BeforeEach
 	void admin() {
-		jdbc.update("INSERT IGNORE INTO users VALUES (?, 'Admin', 'ACTIVE', NOW(6), NOW(6))", ADMIN);
+		jdbc.update("INSERT IGNORE INTO users (id, display_name, status, created_at, updated_at) VALUES (?, 'Admin', 'ACTIVE', NOW(6), NOW(6))", ADMIN);
 		jdbc.update("INSERT IGNORE INTO user_identities VALUES (UUID(), ?, 'LOCAL', ?, ?, ?, NOW(6), NOW(6))", ADMIN,
 				ADMIN_EMAIL, ADMIN_EMAIL, encoder.encode("admin-password"));
 	}

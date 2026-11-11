@@ -11,6 +11,7 @@
     <h1 class="spaced" th:text="${account.displayName} + ' 님'">홍길동 님</h1>
 
     <p class="note error" th:if="${error}" th:text="${error}"></p>
+    <p class="note ok" th:if="${param.avatar}">프로필 사진을 저장했습니다.</p>
     <p class="note ok" th:if="${param.saved}">이름을 저장했습니다.</p>
     <p class="note ok" th:if="${param.unlinked}">연결을 해제했습니다. 다른 기기와 앱에서는 다시 로그인해야 합니다.</p>
     <p class="note error" th:if="${param.link_error}" th:switch="${param.link_error[0]}">
@@ -43,6 +44,19 @@
           </form>
         </li>
       </ul>
+    </section>
+
+    <section th:if="${avatarsEnabled}">
+      <h2>프로필 사진</h2>
+      <img th:if="${avatarUrl}" th:src="${avatarUrl}" alt="" width="96" height="96" class="avatar">
+      <form method="post" th:action="@{/account/avatar}" enctype="multipart/form-data" class="row">
+        <input type="file" name="file" accept="image/jpeg,image/png" required aria-label="프로필 사진">
+        <button type="submit" class="primary">올리기</button>
+      </form>
+      <form th:if="${avatarUrl}" method="post" th:action="@{/account/avatar/remove}">
+        <button type="submit" class="text-button">사진 삭제</button>
+      </form>
+      <p class="hint">JPG · PNG, 10MB 이하. 정사각형으로 잘라 저장하며 누구나 볼 수 있습니다.</p>
     </section>
 
     <section>

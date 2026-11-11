@@ -127,6 +127,12 @@ Only UIDs in `ADMIN_UIDS`; changes need a sign-in in the last 10 minutes and nev
 each is logged with the admin's UID. Product data is read with one-minute `admin_read` orders (`admin.md`), never
 with a user's token, and products return counts, not chat or issue contents.
 
+## Profile Photos
+Uploads are never stored as sent: decoded (JPG / PNG / GIF / BMP only, size and pixel count checked before decoding),
+cropped, re-encoded to 512×512 JPEG. Only Auth holds the R2 write key (`R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`, scope it
+to the one bucket). The bucket is public by design (a profile photo is public); keys are random, not derived from
+anything guessable. Not logged: file content. Deleted with the account.
+
 ## Secrets
 Keep outside source:
 - DB password
