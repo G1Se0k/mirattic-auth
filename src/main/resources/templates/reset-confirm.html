@@ -1,28 +1,28 @@
 <!doctype html>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments :: head('새 비밀번호')}"></head>
+<html lang="ko" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head(#{title.resetConfirm})}"></head>
 <body>
 <main class="landing">
   <div th:replace="~{fragments :: lockup}"></div>
   <div class="panel">
-    <h1>새 비밀번호 설정</h1>
-    <p class="lede">변경하면 모든 기기와 앱에서 로그아웃됩니다.</p>
+    <h1 th:text="#{resetc.title}">새 비밀번호 설정</h1>
+    <p class="lede" th:text="#{resetc.lede}">변경하면 모든 기기와 앱에서 로그아웃됩니다.</p>
 
     <p class="note error" th:if="${error}" th:text="${error}"></p>
 
     <form method="post" th:action="@{/password/reset/confirm}">
       <input type="hidden" name="token" th:value="${token}">
       <div class="field">
-        <label for="password">새 비밀번호 <small>8자 이상</small></label>
+        <label for="password"><th:block th:text="#{field.newPassword}">새 비밀번호</th:block> <small th:text="#{hint.passwordMin}">8자 이상</small></label>
         <div class="input">
           <input id="password" name="password" type="password" autocomplete="new-password" minlength="8" required autofocus>
-          <button type="button" class="peek" aria-controls="password" aria-pressed="false">표시</button>
+          <button type="button" class="peek" aria-controls="password" aria-pressed="false" th:text="#{peek.show}" th:data-show="#{peek.show}" th:data-hide="#{peek.hide}">표시</button>
         </div>
       </div>
-      <button type="submit" class="primary">비밀번호 변경</button>
+      <button type="submit" class="primary" th:text="#{acct.pwChange}">비밀번호 변경</button>
     </form>
 
-    <p class="alt"><a th:href="@{/password/reset}">링크를 다시 받아야 하나요?</a></p>
+    <p class="alt"><a th:href="@{/password/reset}" th:text="#{resetc.again}">링크를 다시 받아야 하나요?</a></p>
   </div>
 </main>
 <footer th:replace="~{fragments :: bottom}"></footer>

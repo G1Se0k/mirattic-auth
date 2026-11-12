@@ -1,4 +1,7 @@
 spring:
+  messages:
+    basename: messages
+    fallback-to-system-locale: false   # a language we do not have gets the Korean base, never the server's locale
   servlet:
     multipart:
       max-request-size: 13MB   # file + multipart boundaries / CSRF field

@@ -105,7 +105,7 @@ class AccountFlowTest extends IntegrationTest {
 		int users = jdbc.queryForObject("SELECT COUNT(*) FROM users", Integer.class);
 
 		assertThatThrownBy(() -> signup(email.toUpperCase(), "password1", "B"))
-				.isInstanceOf(AccountException.class).hasMessageContaining("이미 가입");
+				.isInstanceOf(AccountException.class).hasMessage("error.emailTaken");
 		assertThatThrownBy(() -> signup("not-an-email", "password1", "B")).isInstanceOf(AccountException.class);
 		assertThatThrownBy(() -> signup(email(), "short", "B")).isInstanceOf(AccountException.class);
 		assertThatThrownBy(() -> signup(email(), "가".repeat(25), "B")) // 75 bytes > BCrypt's 72
@@ -160,17 +160,17 @@ class AccountFlowTest extends IntegrationTest {
 		Mockito.reset(mailSender);
 		String email = email();
 		signup(email, "password-1", "M");
-		accounts.requestPasswordReset(email);
+		accounts.requestPasswordReset(email, java.util.Locale.KOREAN);
 		verify(mailSender, timeout(2000)).send(Mockito.any(SimpleMailMessage.class));
-		accounts.requestPasswordReset(email);
+		accounts.requestPasswordReset(email, java.util.Locale.KOREAN);
 		jdbc.update("UPDATE password_reset_tokens t JOIN user_identities i ON i.user_id = t.user_id "
 				+ "SET t.created_at = NOW(6) - INTERVAL 23 HOUR WHERE i.subject = ?", email);
-		accounts.requestPasswordReset(email);
+		accounts.requestPasswordReset(email, java.util.Locale.KOREAN);
 		verify(mailSender, after(500).times(1)).send(Mockito.any(SimpleMailMessage.class));
 
 		jdbc.update("UPDATE password_reset_tokens t JOIN user_identities i ON i.user_id = t.user_id "
 				+ "SET t.created_at = NOW(6) - INTERVAL 25 HOUR WHERE i.subject = ?", email);
-		accounts.requestPasswordReset(email);
+		accounts.requestPasswordReset(email, java.util.Locale.KOREAN);
 		verify(mailSender, timeout(2000).times(2)).send(Mockito.any(SimpleMailMessage.class));
 	}
 
@@ -180,7 +180,7 @@ class AccountFlowTest extends IntegrationTest {
 		String email = email();
 		signup(email, "password-1", "P");
 		for (int i = 0; i < 8; i++) {
-			accounts.requestPasswordReset(email); // @Async: these run in parallel
+			accounts.requestPasswordReset(email, java.util.Locale.KOREAN); // @Async: these run in parallel
 		}
 		verify(mailSender, after(2000).times(1)).send(Mockito.any(SimpleMailMessage.class));
 	}
@@ -508,7 +508,7 @@ class AccountFlowTest extends IntegrationTest {
 
 		loginFails(email, "password-1");
 		loginFails(email, "wrong-password");
-		accounts.requestPasswordReset(email);
+		accounts.requestPasswordReset(email, java.util.Locale.KOREAN);
 		verify(mailSender, after(300).never()).send(Mockito.any(SimpleMailMessage.class));
 	}
 

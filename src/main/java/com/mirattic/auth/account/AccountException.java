@@ -1,9 +1,20 @@
 package com.mirattic.auth.account;
 
-/** A user-facing validation failure; the message is shown on the form as is. */
+/** A user-facing validation failure: a message key (messages*.properties) and its arguments, shown on the form. */
 public class AccountException extends RuntimeException {
 
-	public AccountException(String message) {
-		super(message);
+	private final transient Object[] args;
+
+	public AccountException(String key, Object... args) {
+		super(key);
+		this.args = args;
+	}
+
+	public String key() {
+		return getMessage();
+	}
+
+	public Object[] args() {
+		return args;
 	}
 }

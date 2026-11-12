@@ -11,10 +11,10 @@ class AvatarsTest {
 
 	@Test
 	void notAnImageTooBigOrTooManyPixelsIsRefused() throws Exception {
-		assertThatThrownBy(() -> Avatars.normalize("<?php echo 1;".getBytes())).hasMessageContaining("JPG");
-		assertThatThrownBy(() -> Avatars.normalize(new byte[11 * 1024 * 1024])).hasMessageContaining("10MB");
+		assertThatThrownBy(() -> Avatars.normalize("<?php echo 1;".getBytes())).hasMessage("error.avatarType");
+		assertThatThrownBy(() -> Avatars.normalize(new byte[11 * 1024 * 1024])).hasMessage("error.avatarSize");
 		ByteArrayOutputStream big = new ByteArrayOutputStream();
 		ImageIO.write(new BufferedImage(5000, 5000, BufferedImage.TYPE_BYTE_GRAY), "png", big);
-		assertThatThrownBy(() -> Avatars.normalize(big.toByteArray())).hasMessageContaining("너무 큽니다");
+		assertThatThrownBy(() -> Avatars.normalize(big.toByteArray())).hasMessage("error.avatarBig");
 	}
 }

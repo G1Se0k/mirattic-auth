@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head(#{title.privacy})}"></head>
+<body>
+<header th:replace="~{fragments :: top}"></header>
+<main class="doc">
+  <h1>Privacy Policy</h1>
+  <p class="meta">Effective September 30, 2026 · AI-translated from the Korean version. If they differ, the Korean version prevails.</p>
+
+  <p>
+    The Mirattic account (auth.mirattic.com, the &ldquo;account service&rdquo;) provides one sign-in for Mirattic Sync and
+    Mirattic Flow. It is run by an individual and handles only the information that signing in requires. The information
+    each product handles is described in that product&rsquo;s own privacy policy.
+  </p>
+
+  <h2>1. What we handle and how we collect it</h2>
+  <ul>
+    <li><strong>Signing up with email</strong> — email, name (display name) and password. The password is stored only as an irreversible hash (BCrypt).</li>
+    <li>
+      <strong>Signing in with Kakao, Naver or Google</strong> — the member number that service assigns, the nickname (name), and the email
+      (only if you agree; for Google, only an email Google has verified). We never receive your Kakao, Naver or Google password. The nickname is
+      used as your name when you first sign up, and you can use the service without agreeing to share your email.
+    </li>
+    <li>
+      <strong>Information created while you use the service</strong> — a session cookie that keeps you signed in, and for that session the
+      type of browser and operating system and the sign-in time (&ldquo;Signed-in devices&rdquo; on the account page); the account&rsquo;s security activity
+      log (the kind and time of sign-ins, wrong-password attempts, password changes, sign-in methods connected or removed, and device sign-outs, with
+      the browser and operating system type; IP addresses are not recorded); the sign-in tokens issued to each product (stored only as hashes);
+      password reset request records (hashes); and a signup network record to prevent abuse (the IP address, stored only as a hash made with a secret key that exists only on the server).
+    </li>
+  </ul>
+  <p>We use no advertising or analytics trackers, and we do not handle location or payment information.</p>
+
+  <h2>2. Purposes</h2>
+  <ul>
+    <li>Verifying who you are, signing you in and keeping you signed in (SSO: signing in once means you do not have to sign in again to Mirattic products)</li>
+    <li>Telling Mirattic Sync and Mirattic Flow who has signed in (see 3 below)</li>
+    <li>Sending password reset emails, preventing fraudulent signups and brute-force sign-in attempts, checking for account theft (security activity log), and answering inquiries</li>
+  </ul>
+
+  <h2>3. Provision to third parties</h2>
+  <p>
+    When you sign in to Mirattic Sync or Mirattic Flow, we pass that product your Mirattic account ID and the name and email you agreed to share.
+    Both products are run by the same operator as the account service. We provide nothing to any other third party.
+  </p>
+
+  <h2>4. Processors and transfers abroad</h2>
+  <table>
+    <thead><tr><th>Recipient</th><th>What it does</th><th>Items</th><th>Location</th></tr></thead>
+    <tbody>
+      <tr><td>Resend, Inc.</td><td>Sends password reset emails</td><td>Email address, email content</td><td>United States (sent over the network when requested)</td></tr>
+      <tr><td>Cloudflare, Inc.</td><td>Access protection and delivery (HTTPS proxy)</td><td>Visitor IP address, request information</td><td>Networks in Korea and abroad</td></tr>
+    </tbody>
+  </table>
+  <p>The server that stores account information is a server in Korea that the operator manages directly.</p>
+
+  <h2>5. Retention and deletion</h2>
+  <ul>
+    <li>Account information: until you delete your account, then deleted without delay. Only the randomly generated account ID is kept so that it is never reused.</li>
+    <li>Security activity log: deleted after 90 days, and immediately when you delete your account.</li>
+    <li>Sign-in sessions: end after 30 minutes without use. Product sign-in tokens: 15 minutes (access) and 30 days (refresh); each is deleted one day after it expires.</li>
+    <li>Password reset records: expire after 30 minutes and are deleted one day later. Signup network records: deleted one day after the last signup (cleaned up hourly).</li>
+    <li>Database backups: made daily, kept only on the production server for 7 days, then deleted (a deleted account disappears from backups within 8 days at most).</li>
+  </ul>
+
+  <h2>6. Your rights</h2>
+  <p>
+    After signing in you can change your name, password, sign-in methods (Kakao, Naver or Google connections) and signed-in devices on the
+    <a th:href="@{/account}">account page</a>, and you can delete your account there. Deleting your account also deletes your data in
+    Mirattic Sync and Mirattic Flow. For anything else &mdash; access, correction, deletion or suspension of processing &mdash; contact us below and we will
+    handle it after verifying your identity.
+  </p>
+
+  <h2>7. Cookies</h2>
+  <p>
+    We use only the one session cookie needed to keep you signed in (<code>SESSION</code>), plus a cookie named <code>lang</code> that remembers the language you chose.
+    Scripts cannot read them (HttpOnly) and they are sent only over HTTPS. Clearing cookies in your browser signs you out.
+  </p>
+
+  <h2>8. Security measures</h2>
+  <ul>
+    <li>Passwords, sign-in tokens and reset tokens are stored only as hashes.</li>
+    <li>All communication is encrypted with HTTPS, and the database cannot be reached from outside.</li>
+    <li>Sign-in, signup and password reset attempts are rate-limited.</li>
+  </ul>
+
+  <h2>9. Privacy officer</h2>
+  <ul>
+    <li>Officer — the Mirattic operator</li>
+    <li>Contact — <a href="mailto:jangisuk94@gmail.com">jangisuk94@gmail.com</a></li>
+  </ul>
+  <p>You can also report or ask about privacy violations to the Korea Internet &amp; Security Agency&rsquo;s Privacy Infringement Report Center (privacy.kisa.or.kr, dial 118 in Korea).</p>
+
+  <h2>10. Changes to this policy</h2>
+  <p>If this policy changes, we will post it on this page with its effective date.</p>
+</main>
+<footer th:replace="~{fragments :: bottom}"></footer>
+</body>
+</html>

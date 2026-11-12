@@ -434,3 +434,7 @@ table.list td.long { white-space: normal; min-width: 220px; max-width: 420px; ov
   main.account .primary, main.account .danger { height: 44px; }
   main.account input:not([type="checkbox"]):not([type="file"]) { height: 44px; }
 }
+
+/* language switch in the footer */
+footer .langs { margin-top: 6px; display: flex; justify-content: center; gap: 8px; }
+footer .langs a.on { color: var(--ink-soft); font-weight: 600; pointer-events: none; text-decoration: none; }

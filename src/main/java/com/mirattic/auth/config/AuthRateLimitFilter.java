@@ -1,5 +1,6 @@
 package com.mirattic.auth.config;
 
+import com.mirattic.auth.i18n.Lang;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -9,6 +10,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.MessageSource;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -38,9 +40,11 @@ class AuthRateLimitFilter extends OncePerRequestFilter {
 	}
 
 	private final Map<String, Window> windows = new ConcurrentHashMap<>();
+	private final MessageSource messages;
 	private final int limitPerMinute;
 
-	AuthRateLimitFilter(@Value("${auth.rate-limit-per-minute:20}") int limitPerMinute) {
+	AuthRateLimitFilter(MessageSource messages, @Value("${auth.rate-limit-per-minute:20}") int limitPerMinute) {
+		this.messages = messages;
 		this.limitPerMinute = limitPerMinute;
 	}
 
@@ -61,7 +65,7 @@ class AuthRateLimitFilter extends OncePerRequestFilter {
 			response.setStatus(429);
 			response.setHeader("Retry-After", "60");
 			response.setContentType("text/plain;charset=UTF-8");
-			response.getWriter().write("요청이 너무 많습니다. 1분 후 다시 시도하세요.");
+			response.getWriter().write(messages.getMessage("error.tooMany", null, Lang.of(request)));
 			return;
 		}
 		chain.doFilter(request, response);

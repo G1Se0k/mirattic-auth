@@ -1,44 +1,44 @@
 <!doctype html>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments :: head('로그인')}"></head>
+<html lang="ko" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head(#{title.login})}"></head>
 <body>
 <main class="landing">
   <div th:replace="~{fragments :: lockup}"></div>
   <div class="panel">
-    <h1 class="sr-only">로그인</h1>
-    <p class="lede context" th:if="${clientName}">로그인하면 <strong th:text="${clientName}">Mirattic Sync</strong>로 돌아갑니다.</p>
+    <h1 class="sr-only" th:text="#{title.login}">로그인</h1>
+    <p class="lede context" th:if="${clientName}" th:utext="#{login.context(${'<strong>' + #strings.escapeXml(clientName) + '</strong>'})}">로그인하면 <strong>Mirattic Sync</strong>로 돌아갑니다.</p>
 
-    <p class="note ok" th:if="${param.deleted}">탈퇴했습니다. 그동안 이용해주셔서 감사합니다.</p>
-    <p class="note ok" th:if="${param.unlinked}">연결을 해제했습니다. 남은 로그인 방법으로 다시 로그인해주세요.</p>
-    <p class="note ok" th:if="${param.reauth}">보안을 위해 한 번 더 로그인해주세요.</p>
-    <p class="note error" th:if="${param.error}">이메일 또는 비밀번호가 맞지 않습니다.</p>
-    <p class="note error" th:if="${param.suspended}">이용이 정지된 계정입니다.</p>
-    <p class="note error" th:if="${param.social_error}">카카오·네이버·Google 로그인을 마치지 못했습니다. 다시 시도해주세요.</p>
-    <p class="note ok" th:if="${param.signup}">가입이 완료되었습니다. 로그인해주세요.</p>
-    <p class="note ok" th:if="${param.reset}">비밀번호를 변경했습니다. 새 비밀번호로 로그인해주세요.</p>
-    <p class="note ok" th:if="${param.logout}">로그아웃되었습니다.</p>
+    <p class="note ok" th:if="${param.deleted}" th:text="#{login.deleted}">탈퇴했습니다. 그동안 이용해주셔서 감사합니다.</p>
+    <p class="note ok" th:if="${param.unlinked}" th:text="#{login.unlinked}">연결을 해제했습니다. 남은 로그인 방법으로 다시 로그인해주세요.</p>
+    <p class="note ok" th:if="${param.reauth}" th:text="#{login.reauth}">보안을 위해 한 번 더 로그인해주세요.</p>
+    <p class="note error" th:if="${param.error}" th:text="#{login.error}">이메일 또는 비밀번호가 맞지 않습니다.</p>
+    <p class="note error" th:if="${param.suspended}" th:text="#{login.suspended}">이용이 정지된 계정입니다.</p>
+    <p class="note error" th:if="${param.social_error}" th:text="#{login.socialError}">카카오·네이버·Google 로그인을 마치지 못했습니다. 다시 시도해주세요.</p>
+    <p class="note ok" th:if="${param.signup}" th:text="#{login.signup}">가입이 완료되었습니다. 로그인해주세요.</p>
+    <p class="note ok" th:if="${param.reset}" th:text="#{login.reset}">비밀번호를 변경했습니다. 새 비밀번호로 로그인해주세요.</p>
+    <p class="note ok" th:if="${param.logout}" th:text="#{login.logout}">로그아웃되었습니다.</p>
 
     <div th:replace="~{fragments :: social}"></div>
-    <p class="divider" th:if="${emailLogin}"><span>또는 이메일로</span></p>
+    <p class="divider" th:if="${emailLogin}"><span th:text="#{divider.email}">또는 이메일로</span></p>
 
     <form method="post" th:action="@{/login}" th:if="${emailLogin}">
       <div class="field">
-        <label for="username">이메일</label>
+        <label for="username" th:text="#{field.email}">이메일</label>
         <input id="username" name="username" type="email" autocomplete="username" required>
       </div>
       <div class="field">
-        <label for="password">비밀번호</label>
+        <label for="password" th:text="#{field.password}">비밀번호</label>
         <div class="input">
           <input id="password" name="password" type="password" autocomplete="current-password" required>
-          <button type="button" class="peek" aria-controls="password" aria-pressed="false">표시</button>
+          <button type="button" class="peek" aria-controls="password" aria-pressed="false" th:text="#{peek.show}" th:data-show="#{peek.show}" th:data-hide="#{peek.hide}">표시</button>
         </div>
         <!-- After the field, not in its label: Tab from the email goes to the password first. -->
-        <p class="forgot"><a th:href="@{/password/reset}">비밀번호를 잊으셨나요?</a></p>
+        <p class="forgot"><a th:href="@{/password/reset}" th:text="#{login.forgot}">비밀번호를 잊으셨나요?</a></p>
       </div>
-      <button type="submit" class="primary">로그인</button>
+      <button type="submit" class="primary" th:text="#{login.submit}">로그인</button>
     </form>
 
-    <p class="alt" th:if="${emailLogin}">계정이 없으신가요? <a th:href="@{/signup}">회원가입</a></p>
+    <p class="alt" th:if="${emailLogin}"><th:block th:text="#{login.noAccount}">계정이 없으신가요?</th:block> <a th:href="@{/signup}" th:text="#{login.signupLink}">회원가입</a></p>
   </div>
 </main>
 <footer th:replace="~{fragments :: bottom}"></footer>

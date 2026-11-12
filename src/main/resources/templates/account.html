@@ -1,135 +1,135 @@
 <!doctype html>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments :: head('내 계정')}"></head>
+<html lang="ko" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head(#{title.account})}"></head>
 <body>
 <header class="top">
-  <a class="brand" th:href="@{/account}"><img th:src="@{/mark.svg}" alt="">Mirattic <span>계정</span></a>
-  <form method="post" th:action="@{/logout}"><button type="submit" class="text-button">로그아웃</button></form>
+  <a class="brand" th:href="@{/account}"><img th:src="@{/mark.svg}" alt="">Mirattic <span th:text="#{brand.account}">계정</span></a>
+  <form method="post" th:action="@{/logout}"><button type="submit" class="text-button" th:text="#{acct.logout}">로그아웃</button></form>
 </header>
 <main class="account">
   <div class="panel">
     <div class="profile">
       <form th:if="${avatarsEnabled}" id="avatarForm" method="post" th:action="@{/account/avatar}" enctype="multipart/form-data">
-        <label class="avatar-pick" title="사진 변경">
+        <label class="avatar-pick" th:title="#{acct.avatarTitle}">
           <img th:if="${avatarUrl}" th:src="${avatarUrl}" alt="" width="88" height="88" class="avatar">
           <span th:unless="${avatarUrl}" class="avatar ph" th:text="${#strings.substring(account.displayName, 0, 1)}">홍</span>
-          <span class="edit">변경</span>
-          <input type="file" name="file" accept="image/jpeg,image/png" class="sr-only" aria-label="프로필 사진 변경" required>
+          <span class="edit" th:text="#{acct.avatarEdit}">변경</span>
+          <input type="file" name="file" accept="image/jpeg,image/png" class="sr-only" th:aria-label="#{acct.avatarTitle}" aria-label="프로필 사진 변경" required>
         </label>
       </form>
       <div>
-        <h1 th:text="${account.displayName} + ' 님'">홍길동 님</h1>
-        <p class="hint" th:if="${avatarsEnabled}">사진을 눌러 바꾸거나 끌어다 놓으세요. JPG · PNG, 10MB 이하, 정사각형으로 잘라 저장하며 누구나 볼 수 있습니다.</p>
+        <h1 th:text="#{acct.greeting(${account.displayName})}">홍길동 님</h1>
+        <p class="hint" th:if="${avatarsEnabled}" th:text="#{acct.avatarHint}">사진을 눌러 바꾸거나 끌어다 놓으세요.</p>
         <form th:if="${avatarsEnabled and avatarUrl != null}" method="post" th:action="@{/account/avatar/remove}">
-          <button type="submit" class="text-button">사진 삭제</button>
+          <button type="submit" class="text-button" th:text="#{acct.avatarRemove}">사진 삭제</button>
         </form>
       </div>
     </div>
 
     <p class="note error" th:if="${error}" th:text="${error}"></p>
-    <p class="note ok" th:if="${param.avatar}">프로필 사진을 저장했습니다.</p>
-    <p class="note ok" th:if="${param.saved}">이름을 저장했습니다.</p>
-    <p class="note ok" th:if="${param.unlinked}">연결을 해제했습니다. 다른 기기와 앱에서는 다시 로그인해야 합니다.</p>
+    <p class="note ok" th:if="${param.avatar}" th:text="#{acct.avatarSaved}">프로필 사진을 저장했습니다.</p>
+    <p class="note ok" th:if="${param.saved}" th:text="#{acct.nameSaved}">이름을 저장했습니다.</p>
+    <p class="note ok" th:if="${param.unlinked}" th:text="#{acct.unlinked}">연결을 해제했습니다.</p>
     <p class="note error" th:if="${param.link_error}" th:switch="${param.link_error[0]}">
-      <span th:case="'taken'">그 계정은 이미 다른 Mirattic 계정의 로그인 방법입니다.</span>
-      <span th:case="'exists'">이미 같은 서비스의 다른 계정이 연결되어 있습니다. 먼저 해제하세요.</span>
-      <span th:case="*">연결을 마치지 못했습니다. 다시 시도해주세요.</span>
+      <span th:case="'taken'" th:text="#{acct.link.taken}">taken</span>
+      <span th:case="'exists'" th:text="#{acct.link.exists}">exists</span>
+      <span th:case="*" th:text="#{acct.link.other}">other</span>
     </p>
-    <p class="note ok" th:if="${param.ended}">로그아웃시켰습니다. 앱은 15분 안에 로그아웃됩니다.</p>
-    <p class="note ok" th:if="${param.password}">비밀번호를 변경했습니다. 다른 기기와 앱에서는 다시 로그인해야 합니다.</p>
+    <p class="note ok" th:if="${param.ended}" th:text="#{acct.ended}">로그아웃시켰습니다.</p>
+    <p class="note ok" th:if="${param.password}" th:text="#{acct.passwordChanged}">비밀번호를 변경했습니다.</p>
 
     <dl class="facts">
-      <div><dt>이메일</dt><dd th:text="${account.email ?: '-'}">you@example.com</dd></div>
-      <div><dt>계정 ID</dt><dd><code th:text="${account.id}">uuid</code></dd></div>
+      <div><dt th:text="#{field.email}">이메일</dt><dd th:text="${account.email ?: '-'}">you@example.com</dd></div>
+      <div><dt th:text="#{acct.accountId}">계정 ID</dt><dd><code th:text="${account.id}">uuid</code></dd></div>
     </dl>
 
     <section id="methods">
-      <h2>로그인 방법</h2>
+      <h2 th:text="#{acct.methods}">로그인 방법</h2>
       <ul class="devices">
         <li th:if="${account.hasPassword()}">
-          <div><strong>이메일</strong><p th:text="${account.email}">you@example.com</p></div>
+          <div><strong th:text="#{field.email}">이메일</strong><p th:text="${account.email}">you@example.com</p></div>
         </li>
         <li th:each="p : ${ {'kakao', 'naver', 'google'} }" th:with="linked=${account.providers.contains(p.toUpperCase())}">
           <div>
-            <strong th:text="${p == 'kakao' ? '카카오' : p == 'naver' ? '네이버' : 'Google'}">카카오</strong>
-            <p th:text="${linked ? '연결됨' : '연결 안 됨'}">연결됨</p>
+            <strong th:text="${@i18n.msg('provider.' + p)}">카카오</strong>
+            <p th:text="${linked ? @i18n.msg('acct.linked') : @i18n.msg('acct.notLinked')}">연결됨</p>
           </div>
           <form th:if="${!linked or signInMethods > 1}" method="post"
                 th:action="@{/account/{a}/{p}(a=${linked ? 'unlink' : 'link'}, p=${p})}">
-            <button type="submit" class="text-button" th:text="${linked ? '해제' : '연결'}">연결</button>
+            <button type="submit" class="text-button" th:text="${linked ? @i18n.msg('acct.unlink') : @i18n.msg('acct.link')}">연결</button>
           </form>
         </li>
       </ul>
     </section>
 
     <section>
-      <h2>이름</h2>
+      <h2 th:text="#{field.name}">이름</h2>
       <form method="post" th:action="@{/account/name}" class="row">
-        <input name="displayName" maxlength="20" required th:value="${account.displayName}" aria-label="이름">
-        <button type="submit" class="primary">저장</button>
+        <input name="displayName" maxlength="20" required th:value="${account.displayName}" th:aria-label="#{field.name}" aria-label="이름">
+        <button type="submit" class="primary" th:text="#{acct.save}">저장</button>
       </form>
     </section>
 
     <section th:if="${account.hasPassword()}">
-      <h2>비밀번호 변경</h2>
+      <h2 th:text="#{acct.pwChange}">비밀번호 변경</h2>
       <form method="post" th:action="@{/account/password}">
         <div class="field">
-          <label for="currentPassword">현재 비밀번호</label>
+          <label for="currentPassword" th:text="#{field.currentPassword}">현재 비밀번호</label>
           <div class="input">
             <input id="currentPassword" name="currentPassword" type="password" autocomplete="current-password" required>
-            <button type="button" class="peek" aria-controls="currentPassword" aria-pressed="false">표시</button>
+            <button type="button" class="peek" aria-controls="currentPassword" aria-pressed="false" th:text="#{peek.show}" th:data-show="#{peek.show}" th:data-hide="#{peek.hide}">표시</button>
           </div>
         </div>
         <div class="field">
-          <label for="password">새 비밀번호 <small>8자 이상</small></label>
+          <label for="password"><th:block th:text="#{field.newPassword}">새 비밀번호</th:block> <small th:text="#{hint.passwordMin}">8자 이상</small></label>
           <div class="input">
             <input id="password" name="password" type="password" autocomplete="new-password" minlength="8" required>
-            <button type="button" class="peek" aria-controls="password" aria-pressed="false">표시</button>
+            <button type="button" class="peek" aria-controls="password" aria-pressed="false" th:text="#{peek.show}" th:data-show="#{peek.show}" th:data-hide="#{peek.hide}">표시</button>
           </div>
         </div>
-        <button type="submit" class="primary">비밀번호 변경</button>
+        <button type="submit" class="primary" th:text="#{acct.pwChange}">비밀번호 변경</button>
       </form>
     </section>
 
     <section id="devices">
-      <h2>로그인된 기기</h2>
+      <h2 th:text="#{acct.devices}">로그인된 기기</h2>
       <ul class="devices">
         <li th:each="d : ${devices}">
           <div>
-            <strong th:text="${d.label}">Chrome · Mac</strong>
-            <small th:if="${d.current}">이 브라우저</small>
-            <small th:if="${d.app}">앱</small>
-            <p th:text="${'마지막 사용 ' + #temporals.format(d.lastUsedAt, 'M월 d일 HH:mm')}
-                + (${d.signedInAt} ? ${' · 로그인 ' + #temporals.format(d.signedInAt, 'M월 d일')} : '')">마지막 사용 9월 29일 14:02</p>
+            <strong th:text="${@i18n.label(d.label)}">Chrome · Mac</strong>
+            <small th:if="${d.current}" th:text="#{acct.thisBrowser}">이 브라우저</small>
+            <small th:if="${d.app}" th:text="#{acct.app}">앱</small>
+            <p th:text="#{acct.lastUsed(${#temporals.format(d.lastUsedAt, #messages.msg('fmt.datetime'))})}
+                + (${d.signedInAt} ? ${' · ' + @i18n.msg('acct.signedIn', #temporals.format(d.signedInAt, #messages.msg('fmt.date')))} : '')">마지막 사용 9월 29일 14:02</p>
           </div>
           <form th:unless="${d.current}" method="post" th:action="@{/account/devices/end}">
             <input type="hidden" name="id" th:value="${d.id}">
-            <button type="submit" class="text-button">로그아웃</button>
+            <button type="submit" class="text-button" th:text="#{acct.logout}">로그아웃</button>
           </form>
         </li>
       </ul>
     </section>
 
     <section id="activity" th:if="${!events.isEmpty()}">
-      <h2>최근 보안 활동</h2>
+      <h2 th:text="#{acct.activity}">최근 보안 활동</h2>
       <ul class="devices">
         <li th:each="e : ${events}">
           <div>
-            <strong th:text="${e.type.label}">로그인</strong>
-            <p th:text="${#temporals.format(e.at, 'M월 d일 HH:mm')} + (${e.detail} ? ${' · ' + e.detail} : '')">9월 29일 14:02 · 이메일 · Chrome · Mac</p>
+            <strong th:text="${@i18n.event(e.type)}">로그인</strong>
+            <p th:text="${#temporals.format(e.at, #messages.msg('fmt.datetime'))} + (${e.detail} ? ${' · ' + @i18n.label(e.detail)} : '')">9월 29일 14:02 · 이메일 · Chrome · Mac</p>
           </div>
         </li>
       </ul>
-      <p class="hint">내가 한 일이 아닌 활동이 있으면 비밀번호를 바꾸고, 모르는 기기를 로그아웃하세요.</p>
+      <p class="hint" th:text="#{acct.activityHint}">내가 한 일이 아닌 활동이 있으면 비밀번호를 바꾸세요.</p>
     </section>
 
     <section id="delete">
-      <h2>탈퇴</h2>
-      <p class="hint">Mirattic 계정과 함께 Mirattic Sync · Mirattic Flow의 데이터가 모두 삭제되며 되돌릴 수 없습니다.
+      <h2 th:text="#{acct.delete}">탈퇴</h2>
+      <p class="hint" th:text="#{acct.deleteHint}">Mirattic 계정과 함께 Mirattic Sync · Mirattic Flow의 데이터가 모두 삭제되며 되돌릴 수 없습니다.
         Flow에서 혼자 소유한 워크스페이스가 있으면 먼저 소유권을 넘기거나 워크스페이스를 삭제해야 합니다.</p>
       <form method="post" th:action="@{/account/delete}">
-        <label class="check"><input type="checkbox" name="confirm" value="true" required> 모든 데이터가 삭제되는 것을 확인했습니다</label>
-        <button type="submit" class="danger">탈퇴</button>
+        <label class="check"><input type="checkbox" name="confirm" value="true" required> <span th:text="#{acct.deleteConfirm}">모든 데이터가 삭제되는 것을 확인했습니다</span></label>
+        <button type="submit" class="danger" th:text="#{acct.delete}">탈퇴</button>
       </form>
     </section>
   </div>

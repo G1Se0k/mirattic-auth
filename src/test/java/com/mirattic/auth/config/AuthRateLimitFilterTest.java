@@ -9,7 +9,13 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 class AuthRateLimitFilterTest {
 
-	final AuthRateLimitFilter filter = new AuthRateLimitFilter(2);
+	final AuthRateLimitFilter filter = new AuthRateLimitFilter(messages(), 2);
+
+	static org.springframework.context.MessageSource messages() {
+		var m = new org.springframework.context.support.StaticMessageSource();
+		m.addMessage("error.tooMany", java.util.Locale.KOREAN, "too many");
+		return m;
+	}
 
 	int post(String uri, String ip) throws Exception {
 		MockHttpServletRequest request = new MockHttpServletRequest("POST", uri);

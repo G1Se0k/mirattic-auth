@@ -73,7 +73,7 @@ public class AccountDeletion {
 	public void delete(String userId, String currentSessionId) {
 		if (jdbc.update("UPDATE users SET status = 'DISABLED', updated_at = NOW(6) WHERE id = ? AND status = 'ACTIVE'",
 				userId) == 0) {
-			throw new AccountException("이미 탈퇴를 처리하고 있습니다.");
+			throw new AccountException("error.deleteBusy");
 		}
 		try {
 			accounts.endSessions(userId, currentSessionId); // app logins end now: no refresh during the deletion
@@ -86,7 +86,7 @@ public class AccountDeletion {
 			jdbc.update("UPDATE users SET status = 'ACTIVE', updated_at = NOW(6) WHERE id = ? AND status = 'DISABLED'",
 					userId);
 			throw e instanceof AccountException ? e
-					: new AccountException("탈퇴를 마치지 못했습니다. 잠시 후 다시 시도해주세요.");
+					: new AccountException("error.deleteFail");
 		}
 		// Deleted. Sessions that appeared meanwhile end too (and could do nothing: ActiveAccountFilter).
 		try {
@@ -124,8 +124,8 @@ public class AccountDeletion {
 		} catch (RestClientResponseException e) {
 			if (e.getStatusCode().isSameCodeAs(HttpStatus.CONFLICT)) {
 				String reason = reason(e);
-				throw new AccountException(p.name() + "에서 먼저 정리할 것이 있습니다"
-						+ (reason == null ? "." : ": " + reason));
+				throw reason == null ? new AccountException("error.deleteBlocked", p.name())
+						: new AccountException("error.deleteBlockedWhy", p.name(), reason);
 			}
 			log.warn("{} account deletion failed: HTTP {}", p.clientId(), e.getStatusCode().value());
 			throw unavailable(p);
@@ -149,6 +149,6 @@ public class AccountDeletion {
 	}
 
 	private static AccountException unavailable(Product p) {
-		return new AccountException(p.name() + "에 연결하지 못해 탈퇴하지 못했습니다. 잠시 후 다시 시도해주세요.");
+		return new AccountException("error.deleteUnavailable", p.name());
 	}
 }

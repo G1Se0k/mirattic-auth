@@ -135,6 +135,27 @@ Not yet: Sync / Flow showing `picture`.
 Known limits: EXIF orientation not applied (a rotated phone photo stays rotated); HEIC / WebP uploads refused; a failed
 R2 delete of a *replaced* photo leaves an orphan object (logged); a photo set without R2 config cannot be shown.
 
+## Languages and desktop layout (2026-11-12)
+- Auth's pages (not the admin console) come in Korean, English and Japanese. Which one: `?lang=ko|en|ja` (kept in the
+  `lang` cookie, HttpOnly, SameSite=Lax, 1 year, only the choice), then the cookie, then Accept-Language (a language
+  that is none of the three gets English; no header at all gets Korean). Footer links switch it, keeping the page's own
+  query (a reset token) and never a form. `config/Lang`, `LangFilter`, `I18n` (`@i18n` in pages).
+- Texts are keyed in `messages.properties` (Korean base) / `_en` / `_ja` (AI translations); `MessagesTest` checks the
+  same keys and `{n}` places in all three and that every key a page uses exists. `AccountException` carries a key and
+  arguments, shown in the request's language. The reset email and the 429 text follow the request's language too;
+  `requestPasswordReset(email, locale)` takes it because it runs `@Async`.
+- The privacy policy has full English and Japanese copies (`privacy-en|ja.html`, "AI-translated, the Korean one
+  prevails"); the Korean one now names the `lang` cookie.
+- Stored security-log details and device labels keep the Korean they were written in ("카카오 · Chrome · Mac"); the
+  account page translates known parts (`I18n.label`) when it shows them. Names (a Kakao user's "카카오 사용자", a
+  deleted user's "탈퇴한 사용자") are stored text and stay as stored. The admin console stays Korean.
+- Desktop (>= 960px): two-column account page, wider cards, profile photo uploaded by clicking / dropping on the
+  avatar at the top.
+- Codex Sol (3 rounds): fixed the language links after a failed POST (they go to the GET route; a reset keeps its token) and
+  `LangFilter` reading request parameters before the encoding filter (it reads the query string only). Final verdict
+  `unknown`: the new files were untracked, so the review covered only part of the change (not a PASS).
+- Not done: Sync's language does not reach Auth (no `ui_locales` yet); the policies do not yet mention profile photos.
+
 ## Display Name Limit (2026-10-09)
 - User request: names at most 10 Korean / 20 English letters; a new signup's longer name is cut automatically.
 - `AccountService.fitName`: 20 units, ASCII 1, any other character 2. Email signup and Kakao / Naver / Google first

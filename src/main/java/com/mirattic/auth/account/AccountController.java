@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
+import com.mirattic.auth.i18n.I18n;
 import java.util.Set;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
@@ -35,6 +36,7 @@ class AccountController {
 	private final AccountDeletion deletion;
 	private final SecurityEvents events;
 	private final Avatars avatars;
+	private final I18n i18n;
 	private final boolean emailLogin;
 	private final SecurityContextLogoutHandler logout = new SecurityContextLogoutHandler();
 	private static final Set<String> PROVIDERS = Set.of("kakao", "naver", "google");
@@ -43,7 +45,8 @@ class AccountController {
 	private final RequestCache requestCache = new HttpSessionRequestCache();
 
 	AccountController(AccountService accounts, RegisteredClientRepository clients, Devices devices,
-			AccountDeletion deletion, SecurityEvents events, Avatars avatars, @Value("${auth.email-login}") boolean emailLogin) {
+			AccountDeletion deletion, SecurityEvents events, Avatars avatars, I18n i18n, @Value("${auth.email-login}") boolean emailLogin) {
+		this.i18n = i18n;
 		this.events = events;
 		this.avatars = avatars;
 		this.emailLogin = emailLogin;
@@ -61,8 +64,9 @@ class AccountController {
 	/** Names the product the user came from ("로그인하면 Mirattic Sync로 돌아갑니다"), if any. */
 	/** Public: Kakao / Naver review and every product link here. */
 	@GetMapping("/privacy")
-	String privacy() {
-		return "privacy";
+	String privacy(Locale locale) {
+		// One full copy per language; the Korean one prevails.
+		return "ko".equals(locale.getLanguage()) ? "privacy" : "privacy-" + locale.getLanguage();
 	}
 
 	@GetMapping("/login")
@@ -95,7 +99,7 @@ class AccountController {
 			accounts.signup(email, password, displayName, request.getRemoteAddr());
 			return "redirect:/login?signup";
 		} catch (AccountException e) {
-			model.addAttribute("error", e.getMessage());
+			model.addAttribute("error", i18n.msg(e));
 			model.addAttribute("email", email);
 			model.addAttribute("displayName", displayName);
 			return "signup";
@@ -108,8 +112,8 @@ class AccountController {
 	}
 
 	@PostMapping("/password/reset")
-	String resetRequest(@RequestParam String email, Model model) {
-		accounts.requestPasswordReset(email);
+	String resetRequest(@RequestParam String email, Locale locale, Model model) {
+		accounts.requestPasswordReset(email, locale);
 		model.addAttribute("sent", true);
 		return "reset-request";
 	}
@@ -126,7 +130,7 @@ class AccountController {
 			accounts.resetPassword(token, password);
 			return "redirect:/login?reset";
 		} catch (AccountException e) {
-			model.addAttribute("error", e.getMessage());
+			model.addAttribute("error", i18n.msg(e));
 			model.addAttribute("token", token);
 			return "reset-confirm";
 		}
@@ -195,7 +199,7 @@ class AccountController {
 	String delete(Authentication auth, @RequestParam(defaultValue = "false") boolean confirm, HttpServletRequest request,
 			HttpServletResponse response, Model model) {
 		if (!confirm) {
-			return accountWithError(auth, request.getSession(), model, new AccountException("탈퇴 확인에 체크해주세요."));
+			return accountWithError(auth, request.getSession(), model, new AccountException("error.deleteConfirm"));
 		}
 		if (stale(auth)) {
 			return "redirect:/login?reauth";
@@ -232,7 +236,7 @@ class AccountController {
 		} catch (AccountException e) {
 			return accountWithError(auth, session, model, e);
 		} catch (IOException e) {
-			return accountWithError(auth, session, model, new AccountException("사진을 읽을 수 없습니다."));
+			return accountWithError(auth, session, model, new AccountException("error.avatarRead"));
 		}
 	}
 
@@ -254,7 +258,7 @@ class AccountController {
 	}
 
 	private String accountWithError(Authentication auth, HttpSession session, Model model, AccountException e) {
-		model.addAttribute("error", e.getMessage());
+		model.addAttribute("error", i18n.msg(e));
 		return account(auth, session, model);
 	}
 }

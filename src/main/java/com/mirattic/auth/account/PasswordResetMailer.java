@@ -1,8 +1,10 @@
 package com.mirattic.auth.account;
 
+import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.MessageSource;
 import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -18,25 +20,23 @@ class PasswordResetMailer {
 	private final String from;
 	private final String baseUrl;
 
-	PasswordResetMailer(JavaMailSender mailSender, @Value("${auth.mail.from}") String from,
+	private final MessageSource messages;
+
+	PasswordResetMailer(MessageSource messages, JavaMailSender mailSender, @Value("${auth.mail.from}") String from,
 			@Value("${spring.security.oauth2.authorizationserver.issuer}") String baseUrl) {
+		this.messages = messages;
 		this.mailSender = mailSender;
 		this.from = from;
 		this.baseUrl = baseUrl;
 	}
 
-	void send(String to, String token) {
+	void send(String to, String token, Locale locale) {
 		SimpleMailMessage message = new SimpleMailMessage();
 		message.setFrom(from);
 		message.setTo(to);
-		message.setSubject("Mirattic 비밀번호 재설정");
-		message.setText("""
-				아래 링크에서 새 비밀번호를 설정하세요. 링크는 30분 동안 한 번만 사용할 수 있습니다.
-
-				%s/password/reset/confirm?token=%s
-
-				요청하지 않았다면 이 메일을 무시하세요.
-				""".formatted(baseUrl, token));
+		message.setSubject(messages.getMessage("mail.resetSubject", null, locale));
+		message.setText(messages.getMessage("mail.resetBody", new Object[] { baseUrl + "/password/reset/confirm?token=" + token },
+				locale));
 		try {
 			mailSender.send(message);
 		} catch (MailException e) {

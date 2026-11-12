@@ -37,6 +37,7 @@ Use `kid` for key rotation.
   newer sign-in passes (re-authentication before destructive client actions, `oauth-oidc.md`).
 - Access tokens carry `auth_time`; products bound sessions by it (Flow withdrawal / re-join).
 - Stored in MySQL (Spring Session JDBC, cookie `SESSION`): survives restarts / deploys.
+- The only other cookie is `lang` (the page language the user picked: `ko` | `en` | `ja`; HttpOnly, SameSite=Lax).
 - Password change ends the user's other Auth sessions (keeps the current one); password reset ends all.
 - Secure (prod: `SERVER_SERVLET_SESSION_COOKIE_SECURE=true`)
 - HttpOnly

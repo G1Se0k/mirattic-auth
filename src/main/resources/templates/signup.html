@@ -1,37 +1,37 @@
 <!doctype html>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments :: head('회원가입')}"></head>
+<html lang="ko" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head(#{title.signup})}"></head>
 <body>
 <main class="landing">
   <div th:replace="~{fragments :: lockup}"></div>
   <div class="panel">
-    <h1 class="spaced">회원가입</h1>
+    <h1 class="spaced" th:text="#{title.signup}">회원가입</h1>
 
     <p class="note error" th:if="${error}" th:text="${error}"></p>
 
     <div th:replace="~{fragments :: social}"></div>
-    <p class="divider"><span>또는 이메일로</span></p>
+    <p class="divider"><span th:text="#{divider.email}">또는 이메일로</span></p>
 
     <form method="post" th:action="@{/signup}">
       <div class="field">
-        <label for="email">이메일</label>
+        <label for="email" th:text="#{field.email}">이메일</label>
         <input id="email" name="email" type="email" autocomplete="email" maxlength="254" required th:value="${email}">
       </div>
       <div class="field">
-        <label for="displayName">이름 <small>다른 사람에게 보이는 이름입니다</small></label>
-        <input id="displayName" name="displayName" autocomplete="nickname" maxlength="20" required placeholder="홍길동" th:value="${displayName}">
+        <label for="displayName"><th:block th:text="#{field.name}">이름</th:block> <small th:text="#{signup.nameHint}">다른 사람에게 보이는 이름입니다</small></label>
+        <input id="displayName" name="displayName" autocomplete="nickname" maxlength="20" required th:placeholder="#{signup.namePlaceholder}" placeholder="홍길동" th:value="${displayName}">
       </div>
       <div class="field">
-        <label for="password">비밀번호 <small>8자 이상</small></label>
+        <label for="password"><th:block th:text="#{field.password}">비밀번호</th:block> <small th:text="#{hint.passwordMin}">8자 이상</small></label>
         <div class="input">
           <input id="password" name="password" type="password" autocomplete="new-password" minlength="8" required>
-          <button type="button" class="peek" aria-controls="password" aria-pressed="false">표시</button>
+          <button type="button" class="peek" aria-controls="password" aria-pressed="false" th:text="#{peek.show}" th:data-show="#{peek.show}" th:data-hide="#{peek.hide}">표시</button>
         </div>
       </div>
-      <button type="submit" class="primary">가입하기</button>
+      <button type="submit" class="primary" th:text="#{signup.submit}">가입하기</button>
     </form>
 
-    <p class="alt">이미 계정이 있으신가요? <a th:href="@{/login}">로그인</a></p>
+    <p class="alt"><th:block th:text="#{signup.haveAccount}">이미 계정이 있으신가요?</th:block> <a th:href="@{/login}" th:text="#{login.submit}">로그인</a></p>
   </div>
 </main>
 <footer th:replace="~{fragments :: bottom}"></footer>

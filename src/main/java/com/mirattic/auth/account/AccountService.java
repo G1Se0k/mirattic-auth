@@ -80,11 +80,11 @@ public class AccountService {
 	public String signup(String email, String password, String displayName, String clientIp) {
 		String normalized = normalizeEmail(email);
 		if (!EMAIL.matcher(normalized).matches() || normalized.length() > 254) {
-			throw new AccountException("올바른 이메일을 입력하세요.");
+			throw new AccountException("error.emailInvalid");
 		}
 		String name = fitName(displayName);
 		if (name.isEmpty()) {
-			throw new AccountException("이름을 입력하세요.");
+			throw new AccountException("error.nameRequired");
 		}
 		checkPassword(password);
 		claimSignupSlot(clientIp);
@@ -98,7 +98,7 @@ public class AccountService {
 					id, normalized, normalized, passwordEncoder.encode(password));
 		} catch (DuplicateKeyException e) {
 			// Rolls back the users row too.
-			throw new AccountException("이미 가입된 이메일입니다.");
+			throw new AccountException("error.emailTaken");
 		}
 		return id;
 	}
@@ -110,7 +110,7 @@ public class AccountService {
 		boolean recent = jdbc.queryForObject("SELECT last_signup_at > NOW(6) - INTERVAL 1 DAY FROM signup_ips "
 				+ "WHERE ip_hash = ? FOR UPDATE", Boolean.class, ipHash);
 		if (recent) {
-			throw new AccountException("이 네트워크에서는 하루에 한 계정만 만들 수 있습니다. 내일 다시 시도하세요.");
+			throw new AccountException("error.signupLimit");
 		}
 		jdbc.update("UPDATE signup_ips SET last_signup_at = NOW(6) WHERE ip_hash = ?", ipHash);
 	}
@@ -121,7 +121,7 @@ public class AccountService {
 	 */
 	@Async
 	@Transactional
-	public void requestPasswordReset(String email) {
+	public void requestPasswordReset(String email, Locale locale) {
 		String normalized = normalizeEmail(email);
 		// The row lock serializes concurrent requests for one account, so the throttle below holds:
 		// at most one reset mail per account per 24 h, whatever the number of requesting IPs
@@ -137,7 +137,7 @@ public class AccountService {
 		String token = newToken();
 		jdbc.update("INSERT INTO password_reset_tokens (id, user_id, token_hash, expires_at, created_at) "
 				+ "VALUES (UUID(), ?, ?, NOW(6) + INTERVAL 30 MINUTE, NOW(6))", ids.getFirst(), sha256(token));
-		mailer.send(normalized, token);
+		mailer.send(normalized, token, locale);
 	}
 
 	/** One-time: the row lock + used_at makes a second (or concurrent) use fail. */
@@ -149,7 +149,7 @@ public class AccountService {
 				WHERE token_hash = ? AND used_at IS NULL AND expires_at > NOW(6) FOR UPDATE
 				""", String.class, sha256(token == null ? "" : token));
 		if (ids.isEmpty()) {
-			throw new AccountException("링크가 만료되었거나 이미 사용되었습니다. 다시 요청하세요.");
+			throw new AccountException("error.linkExpired");
 		}
 		setPassword(ids.getFirst(), newPassword, null);
 		events.record(ids.getFirst(), SecurityEvents.Type.PASSWORD_RESET, null);
@@ -162,7 +162,7 @@ public class AccountService {
 				"SELECT password_hash FROM user_identities WHERE user_id = ? AND provider = 'LOCAL'",
 				String.class, userId);
 		if (hashes.isEmpty() || !passwordEncoder.matches(currentPassword, hashes.getFirst())) {
-			throw new AccountException("현재 비밀번호가 올바르지 않습니다.");
+			throw new AccountException("error.currentPassword");
 		}
 		checkPassword(newPassword);
 		setPassword(userId, newPassword, currentSessionId);
@@ -258,7 +258,7 @@ public class AccountService {
 		Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM user_identities WHERE user_id = ?"
 				+ (emailLogin ? "" : " AND provider <> 'LOCAL'"), Integer.class, userId);
 		if (count == null || count < 2) {
-			throw new AccountException("마지막 로그인 방법은 해제할 수 없습니다.");
+			throw new AccountException("error.lastMethod");
 		}
 		if (jdbc.update("DELETE FROM user_identities WHERE user_id = ? AND provider = ?", userId, provider) > 0) {
 			events.record(userId, SecurityEvents.Type.UNLINKED, SocialLogin.providerName(provider));
@@ -269,7 +269,7 @@ public class AccountService {
 	/** BCrypt only uses the first 72 bytes, so longer passwords are refused rather than silently cut. */
 	private static void checkPassword(String password) {
 		if (password == null || password.length() < 8 || password.getBytes(StandardCharsets.UTF_8).length > 72) {
-			throw new AccountException("비밀번호는 8자 이상, 72바이트 이하여야 합니다.");
+			throw new AccountException("error.passwordLength");
 		}
 	}
 
@@ -280,7 +280,7 @@ public class AccountService {
 	private static String validDisplayName(String displayName) {
 		String name = displayName == null ? "" : displayName.strip();
 		if (name.isEmpty() || !fitName(name).equals(name)) {
-			throw new AccountException("이름은 한글 10자, 영어 20자까지입니다.");
+			throw new AccountException("error.nameLength");
 		}
 		return name;
 	}

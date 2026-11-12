@@ -70,12 +70,12 @@ public class Avatars {
 	/** Replaces the user's photo. Throws AccountException for a bad file or a non-ACTIVE account. */
 	public void set(String userId, byte[] upload) {
 		if (!enabled()) {
-			throw new AccountException("프로필 사진을 쓸 수 없습니다.");
+			throw new AccountException("error.avatarOff");
 		}
 		byte[] jpeg;
 		// One decode at a time: a 16 M pixel image is ~150 MB of buffers, and Auth's heap is small. Others are turned away.
 		if (!DECODING.tryAcquire()) {
-			throw new AccountException("지금 다른 사진을 처리하고 있습니다. 잠시 후 다시 시도해주세요.");
+			throw new AccountException("error.avatarBusy");
 		}
 		try {
 			jpeg = normalize(upload);
@@ -91,7 +91,7 @@ public class Avatars {
 			old = tx.execute(s -> {
 				var row = jdbc.queryForMap("SELECT status, avatar_key FROM users WHERE id = ? FOR UPDATE", userId);
 				if (!"ACTIVE".equals(row.get("status"))) { // a deletion in progress must not gain a new photo
-					throw new AccountException("지금은 사진을 바꿀 수 없습니다.");
+					throw new AccountException("error.avatarNow");
 				}
 				s3.getObject().putObject(PutObjectRequest.builder().bucket(bucket).key(key).contentType("image/jpeg")
 						.cacheControl("public, max-age=31536000, immutable").build(), RequestBody.fromBytes(jpeg));
@@ -100,7 +100,7 @@ public class Avatars {
 			});
 		} catch (RuntimeException e) {
 			deleteQuietly(key); // rolled back: the new object has no reference (no-op if it was never put)
-			throw e instanceof AccountException ? e : new AccountException("사진을 저장하지 못했습니다. 다시 시도해주세요.");
+			throw e instanceof AccountException ? e : new AccountException("error.avatarSave");
 		}
 		deleteQuietly(old);
 	}
@@ -116,7 +116,7 @@ public class Avatars {
 				return;
 			}
 			if (bucket.isBlank() || s3.getIfAvailable() == null) {
-				throw new AccountException("사진 저장소를 쓸 수 없어 사진을 지우지 못했습니다.");
+				throw new AccountException("error.avatarRemove");
 			}
 			deleteObject(old);
 			jdbc.update("UPDATE users SET avatar_key = NULL, updated_at = NOW(6) WHERE id = ?", userId);
@@ -142,7 +142,7 @@ public class Avatars {
 	/** Centre-cropped square, 512x512 JPEG (transparency on white). */
 	static byte[] normalize(byte[] upload) {
 		if (upload.length == 0 || upload.length > MAX_BYTES) {
-			throw new AccountException("사진은 10MB 이하여야 합니다.");
+			throw new AccountException("error.avatarSize");
 		}
 		BufferedImage src = decode(upload);
 		int side = Math.min(src.getWidth(), src.getHeight());
@@ -159,7 +159,7 @@ public class Avatars {
 				throw new IOException("no jpg writer");
 			}
 		} catch (IOException e) {
-			throw new AccountException("사진을 처리하지 못했습니다.");
+			throw new AccountException("error.avatarProcess");
 		}
 		return bytes.toByteArray();
 	}
@@ -185,29 +185,29 @@ public class Avatars {
 		try (ImageInputStream in = ImageIO.createImageInputStream(new ByteArrayInputStream(upload))) {
 			var readers = in == null ? null : ImageIO.getImageReaders(in);
 			if (readers == null || !readers.hasNext()) {
-				throw new AccountException("JPG 또는 PNG 사진만 올릴 수 있습니다.");
+				throw new AccountException("error.avatarType");
 			}
 			ImageReader reader = readers.next();
 			try {
 				String format = reader.getFormatName().toLowerCase();
 				if (!(format.contains("jpeg") || format.equals("png") || format.equals("gif") || format.equals("bmp"))) {
-					throw new AccountException("JPG 또는 PNG 사진만 올릴 수 있습니다.");
+					throw new AccountException("error.avatarType");
 				}
 				reader.setInput(in, true, true);
 				if ((long) reader.getWidth(0) * reader.getHeight(0) > MAX_PIXELS) {
-					throw new AccountException("사진이 너무 큽니다.");
+					throw new AccountException("error.avatarBig");
 				}
 				return reader.read(0);
 			} finally {
 				reader.dispose();
 			}
 		} catch (IIOException e) {
-			throw new AccountException("사진을 읽을 수 없습니다.");
+			throw new AccountException("error.avatarRead");
 		} catch (IOException | RuntimeException e) {
 			if (e instanceof AccountException a) {
 				throw a;
 			}
-			throw new AccountException("사진을 읽을 수 없습니다.");
+			throw new AccountException("error.avatarRead");
 		}
 	}
 
